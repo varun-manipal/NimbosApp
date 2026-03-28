@@ -133,7 +133,7 @@ struct MainDashboardView: View {
                 Image(viewModel.nimbosStateImage)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: geo.size.width, height: geo.size.height)
+                    .frame(width: geo.size.width, height: geo.size.height, alignment: .bottom)
                     .clipped()
                     .scaleEffect(1.05)
                     .offset(y: nimbosLiftOffset)

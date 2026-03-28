@@ -5,9 +5,6 @@ struct AuraCardView: View {
     let userName: String
     let nimbosStateImage: String
 
-    @State private var shareURL: URL? = nil
-    @State private var showShareSheet = false
-
     var body: some View {
         ZStack {
             GeometryReader { geo in
@@ -57,11 +54,6 @@ struct AuraCardView: View {
                 .padding(.bottom, 52)
             }
         }
-        .sheet(isPresented: $showShareSheet) {
-            if let url = shareURL {
-                ShareSheet(activityItems: [url])
-            }
-        }
     }
 
     private var stageTitle: String {
@@ -84,13 +76,37 @@ struct AuraCardView: View {
         let renderer = ImageRenderer(content: card)
         renderer.scale = UIScreen.main.scale
 
-        guard let uiImage = renderer.uiImage,
-              let data = uiImage.pngData() else { return }
+        guard let uiImage = renderer.uiImage else { return }
 
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("my_aura.png")
-        try? data.write(to: url)
-        shareURL = url
-        showShareSheet = true
+        let controller = UIActivityViewController(activityItems: [uiImage], applicationActivities: nil)
+
+        // iPad requires a source for the popover anchor
+        if let popover = controller.popoverPresentationController {
+            let keyWindow = UIApplication.shared.connectedScenes
+                .compactMap { $0 as? UIWindowScene }
+                .flatMap { $0.windows }
+                .first { $0.isKeyWindow }
+            popover.sourceView = keyWindow
+            popover.sourceRect = CGRect(
+                x: keyWindow?.bounds.midX ?? 0,
+                y: keyWindow?.bounds.midY ?? 0,
+                width: 0,
+                height: 0
+            )
+            popover.permittedArrowDirections = []
+        }
+
+        guard let root = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .flatMap({ $0.windows })
+            .first(where: { $0.isKeyWindow })?
+            .rootViewController else { return }
+
+        // Walk to the topmost presented view controller so we don't
+        // present on one that's already presenting (e.g. the Aura sheet).
+        var top = root
+        while let next = top.presentedViewController { top = next }
+        top.present(controller, animated: true)
     }
 }
 
@@ -157,14 +173,3 @@ struct AuraCardContent: View {
     }
 }
 
-// MARK: - UIActivityViewController wrapper
-
-struct ShareSheet: UIViewControllerRepresentable {
-    let activityItems: [Any]
-
-    func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
-    }
-
-    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
-}
