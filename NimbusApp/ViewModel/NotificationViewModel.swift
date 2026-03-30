@@ -1,7 +1,8 @@
 import Foundation
+import Combine
 import UserNotifications
 
-class NotificationViewModel {
+class NotificationViewModel: ObservableObject {
 
     // MARK: - Permission
 

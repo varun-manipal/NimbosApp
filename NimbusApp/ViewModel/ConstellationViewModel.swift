@@ -1,5 +1,5 @@
 import SwiftUI
-import Observation
+import Combine
 
 struct HabitSuggestion: Identifiable {
     let id = UUID()
@@ -8,9 +8,8 @@ struct HabitSuggestion: Identifiable {
     var isSelected: Bool = false
 }
 
-@Observable
-class ConstellationViewModel {
-    var suggestions: [HabitSuggestion] = [
+class ConstellationViewModel: ObservableObject {
+    @Published var suggestions: [HabitSuggestion] = [
         HabitSuggestion(title: "Hydrate", emoji: "💧"),
         HabitSuggestion(title: "Meditate", emoji: "🧘"),
         HabitSuggestion(title: "No Screen", emoji: "📱"),
@@ -18,7 +17,7 @@ class ConstellationViewModel {
         HabitSuggestion(title: "Read", emoji: "📖"),
         HabitSuggestion(title: "Journal", emoji: "✍️")
     ]
-    var customTask: String = ""
+    @Published var customTask: String = ""
 
     var selectedTitles: [String] {
         suggestions.filter { $0.isSelected }.map { $0.title }

@@ -1,18 +1,18 @@
 import SwiftUI
-import Observation
+import Combine
 import CoreHaptics
 
-@Observable
-class HabitViewModel {
-    var tasks: [HabitTask] = []
-    var totalStarsLit: Int = 0    // lifetime cumulative — drives Nimbos evolution, never decrements
-    var dailyStarsLit: Int = 0    // today only — resets at dawn, can decrement on un-toggle
-    var userName: String = ""
-    var selectedVibe: VibeType = .bestie
-    var lastCompletedId: UUID? = nil
-    var showMorningMist: Bool = false
-    var showMilestoneVideo: Bool = false
-    var shield: Shield = Shield()
+class HabitViewModel: ObservableObject {
+    @Published var tasks: [HabitTask] = []
+    @Published var totalStarsLit: Int = 0    // lifetime cumulative — drives Nimbos evolution, never decrements
+    @Published var dailyStarsLit: Int = 0    // today only — resets at dawn, can decrement on un-toggle
+    @Published var userName: String = ""
+    @Published var selectedVibe: VibeType = .bestie
+    @Published var listPin: String = ""
+    @Published var lastCompletedId: UUID? = nil
+    @Published var showMorningMist: Bool = false
+    @Published var showMilestoneVideo: Bool = false
+    @Published var shield: Shield = Shield()
 
     private var hapticEngine: CHHapticEngine?
 
@@ -25,6 +25,7 @@ class HabitViewModel {
         static let userName       = "nimbus_userName"
         static let selectedVibe   = "nimbus_selectedVibe"
         static let shield         = "nimbus_shield"
+        static let listPin        = "nimbus_pin"
     }
 
     init() {
@@ -107,6 +108,26 @@ class HabitViewModel {
         save()
     }
 
+    func addTask(title: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        tasks.append(HabitTask(title: trimmed))
+        save()
+    }
+
+    func removeTask(_ task: HabitTask) {
+        tasks.removeAll { $0.id == task.id }
+        save()
+    }
+
+    func renameTask(_ task: HabitTask, title: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty,
+              let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
+        tasks[index].title = trimmed
+        save()
+    }
+
     // MARK: - Haptics
 
     private func prepareHaptics() {
@@ -157,6 +178,7 @@ class HabitViewModel {
         d.set(dailyStarsLit, forKey: Keys.dailyStarsLit)
         d.set(userName, forKey: Keys.userName)
         d.set(selectedVibe.rawValue, forKey: Keys.selectedVibe)
+        d.set(listPin, forKey: Keys.listPin)
         if let encoded = try? JSONEncoder().encode(tasks) {
             d.set(encoded, forKey: Keys.tasks)
         }
@@ -165,11 +187,15 @@ class HabitViewModel {
         }
     }
 
+    /// Re-reads all persisted data. Call after onboarding completes.
+    func reload() { load() }
+
     private func load() {
         let d = UserDefaults.standard
         totalStarsLit = d.integer(forKey: Keys.totalStarsLit)
         dailyStarsLit = d.integer(forKey: Keys.dailyStarsLit)
         userName      = d.string(forKey: Keys.userName) ?? ""
+        listPin       = d.string(forKey: Keys.listPin) ?? ""
         if let raw  = d.string(forKey: Keys.selectedVibe),
            let vibe = VibeType(rawValue: raw) {
             selectedVibe = vibe

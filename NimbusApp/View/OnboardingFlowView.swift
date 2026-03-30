@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct OnboardingFlowView: View {
-    @State private var viewModel = OnboardingViewModel()
+    @StateObject private var viewModel = OnboardingViewModel()
 
     var body: some View {
         ZStack {
@@ -25,7 +25,13 @@ struct OnboardingFlowView: View {
                 case .vibeCheck:
                     VibeCheckView { vibe in
                         viewModel.setVibe(vibe)
-                        // setVibe() saves to UserDefaults and flips nimbus_onboardingComplete.
+                    }
+                    .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
+
+                case .pinSetup:
+                    PinEntryView(mode: .setup) { pin in
+                        viewModel.setPin(pin)
+                        // setPin() saves everything and flips nimbus_onboardingComplete.
                         // NimbusAppApp's @AppStorage reacts and swaps to MainDashboardView.
                     }
                     .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .opacity))
@@ -69,9 +75,10 @@ struct OnboardingBackground: View {
 
     private var vibeColor: Color {
         switch step {
-        case .identity:     return .gray
+        case .identity:      return .gray
         case .constellation: return .blue
-        case .vibeCheck:    return vibe == .bestie ? .pink : .indigo
+        case .vibeCheck:     return vibe == .bestie ? .pink : .indigo
+        case .pinSetup:      return .cyan
         }
     }
 }

@@ -1,11 +1,10 @@
 import Foundation
-import Observation
+import Combine
 
-@Observable
-class HistoryViewModel {
-    var snapshots: [DailySnapshot] = []
-    var selectedSnapshot: DailySnapshot? = nil
-    var displayMonth: Date = Calendar.current.startOfDay(for: Date())
+class HistoryViewModel: ObservableObject {
+    @Published var snapshots: [DailySnapshot] = []
+    @Published var selectedSnapshot: DailySnapshot? = nil
+    @Published var displayMonth: Date = Calendar.current.startOfDay(for: Date())
 
     init() {
         reload()

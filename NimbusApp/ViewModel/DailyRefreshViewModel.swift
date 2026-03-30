@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 struct DailySnapshot: Codable {
     let date: Date
@@ -6,7 +7,7 @@ struct DailySnapshot: Codable {
     let starsLit: Int
 }
 
-class DailyRefreshViewModel {
+class DailyRefreshViewModel: ObservableObject {
 
     private enum Keys {
         static let lastOpenedDate = "nimbus_lastOpenedDate"

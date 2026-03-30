@@ -10,9 +10,9 @@ import SwiftUI
 @main
 struct NimbusAppApp: App {
     @AppStorage(OnboardingViewModel.onboardingCompleteKey) private var isOnboardingComplete = false
-    @State private var habitViewModel = HabitViewModel()
-    @State private var dailyRefresh   = DailyRefreshViewModel()
-    @State private var notifications  = NotificationViewModel()
+    @StateObject private var habitViewModel = HabitViewModel()
+    @StateObject private var dailyRefresh   = DailyRefreshViewModel()
+    @StateObject private var notifications  = NotificationViewModel()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
@@ -25,14 +25,14 @@ struct NimbusAppApp: App {
                 }
             }
             .animation(.easeInOut(duration: 0.8), value: isOnboardingComplete)
-            .onChange(of: isOnboardingComplete) { _, completed in
+            .onChange(of: isOnboardingComplete) { completed in
                 if completed {
                     // Onboarding just finished — reload HabitViewModel from the
-                    // UserDefaults data that OnboardingViewModel.setVibe() persisted.
-                    habitViewModel = HabitViewModel()
+                    // UserDefaults data that OnboardingViewModel.setPin() persisted.
+                    habitViewModel.reload()
                 }
             }
-            .onChange(of: scenePhase) { _, phase in
+            .onChange(of: scenePhase) { phase in
                 guard isOnboardingComplete else { return }
                 if phase == .active {
                     dailyRefresh.checkForNewDay(habitViewModel: habitViewModel)

@@ -2,7 +2,7 @@ import SwiftUI
 
 struct HistoryView: View {
     let totalStarsLit: Int
-    @State private var vm = HistoryViewModel()
+    @StateObject private var vm = HistoryViewModel()
 
     private let weekdayLabels = ["S", "M", "T", "W", "T", "F", "S"]
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 7)

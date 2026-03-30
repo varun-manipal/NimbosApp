@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ConstellationView: View {
-    @State private var viewModel = ConstellationViewModel()
+    @StateObject private var viewModel = ConstellationViewModel()
     var onCompletion: ([String]) -> Void
 
     var body: some View {

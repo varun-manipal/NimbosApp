@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct MainDashboardView: View {
-    @Bindable var viewModel: HabitViewModel
+    @ObservedObject var viewModel: HabitViewModel
 
     // MARK: - Local animation state (UI-only, not in VM)
     @State private var ringScale: CGFloat = 0.05
@@ -12,6 +12,8 @@ struct MainDashboardView: View {
     @State private var showHistory = false
     @State private var showEvolution = false
     @State private var showAura = false
+    @State private var showManageTasks = false
+    @State private var showPinGate = false
 
     /// Nimbos floats upward as tasks are completed. Capped at 48pt.
     private var nimbosLiftOffset: CGFloat {
@@ -83,10 +85,24 @@ struct MainDashboardView: View {
 
                 // Checklist panel
                 VStack(alignment: .leading, spacing: 15) {
-                    Text("Today's Tasks")
-                        .font(.system(.caption))
-                        .foregroundColor(.cyan)
-                        .tracking(2)
+                    HStack {
+                        Text("Today's Tasks")
+                            .font(.system(.caption))
+                            .foregroundColor(.cyan)
+                            .tracking(2)
+                        Spacer()
+                        Button {
+                            if viewModel.listPin.isEmpty {
+                                showManageTasks = true   // no PIN set (legacy) — open directly
+                            } else {
+                                showPinGate = true
+                            }
+                        } label: {
+                            Image(systemName: "pencil")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.white.opacity(0.45))
+                        }
+                    }
 
                     ForEach($viewModel.tasks) { $task in
                         if !task.isSnoozed {
@@ -150,16 +166,34 @@ struct MainDashboardView: View {
                 swirlRotation = 360
             }
         }
-        .onChange(of: viewModel.lastCompletedId) { _, id in
+        .onChange(of: viewModel.lastCompletedId) { id in
             if id != nil { triggerRingPulse() }
         }
-        .onChange(of: viewModel.dailyCompletionPercentage) { _, pct in
+        .onChange(of: viewModel.dailyCompletionPercentage) { pct in
             if pct >= 1.0, !supernovaFired {
                 supernovaFired = true
                 triggerSupernova()
             } else if pct < 1.0 {
                 supernovaFired = false   // allow re-fire if tasks are later un-toggled
             }
+        }
+        .sheet(isPresented: $showPinGate) {
+            PinEntryView(
+                mode: .verify(storedPin: viewModel.listPin),
+                onSuccess: { _ in
+                    showPinGate = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                        showManageTasks = true
+                    }
+                },
+                onCancel: { showPinGate = false }
+            )
+            .presentationDetents([.large])
+        }
+        .sheet(isPresented: $showManageTasks) {
+            ManageTasksView(viewModel: viewModel)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showHistory) {
             HistoryView(totalStarsLit: viewModel.totalStarsLit)
