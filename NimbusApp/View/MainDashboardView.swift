@@ -14,6 +14,7 @@ struct MainDashboardView: View {
     @State private var showAura = false
     @State private var showManageTasks = false
     @State private var showPinGate = false
+    @State private var showTomorrowPlanner = false
 
     /// Nimbos floats upward as tasks are completed. Capped at 48pt.
     private var nimbosLiftOffset: CGFloat {
@@ -69,6 +70,7 @@ struct MainDashboardView: View {
                     NavIconButton(icon: "calendar", label: "History") { showHistory = true }
                     NavIconButton(icon: "chart.line.uptrend.xyaxis", label: "Evolution") { showEvolution = true }
                     NavIconButton(icon: "square.and.arrow.up", label: "Aura") { showAura = true }
+                    NavIconButton(icon: "moon.stars.fill", label: "Tomorrow") { showTomorrowPlanner = true }
                     Spacer()
                 }
                 .padding(.top, 16)
@@ -193,6 +195,11 @@ struct MainDashboardView: View {
         .sheet(isPresented: $showManageTasks) {
             ManageTasksView(viewModel: viewModel)
                 .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showTomorrowPlanner) {
+            TomorrowPlannerView(viewModel: viewModel)
+                .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showHistory) {

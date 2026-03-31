@@ -36,9 +36,16 @@ class DailyRefreshViewModel: ObservableObject {
 
         for i in habitViewModel.tasks.indices {
             habitViewModel.tasks[i].isCompleted      = false
-            habitViewModel.tasks[i].isSnoozed        = false
+            // Convert tomorrow's planned skips into today's snoozes
+            habitViewModel.tasks[i].isSnoozed        = habitViewModel.tasks[i].isSkippedTomorrow
+            habitViewModel.tasks[i].isSkippedTomorrow = false
             habitViewModel.tasks[i].isDismissedToday = false
         }
+
+        // Merge one-time extras queued for today
+        habitViewModel.tasks.append(contentsOf: habitViewModel.tomorrowExtras)
+        habitViewModel.tomorrowExtras = []
+
         habitViewModel.dailyStarsLit = 0
         habitViewModel.save()
 

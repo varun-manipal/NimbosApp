@@ -4,6 +4,7 @@ import CoreHaptics
 
 class HabitViewModel: ObservableObject {
     @Published var tasks: [HabitTask] = []
+    @Published var tomorrowExtras: [HabitTask] = []   // one-time tasks queued for tomorrow only
     @Published var totalStarsLit: Int = 0    // lifetime cumulative — drives Nimbos evolution, never decrements
     @Published var dailyStarsLit: Int = 0    // today only — resets at dawn, can decrement on un-toggle
     @Published var userName: String = ""
@@ -20,6 +21,7 @@ class HabitViewModel: ObservableObject {
 
     private enum Keys {
         static let tasks          = "nimbus_tasks"
+        static let tomorrowExtras = "nimbus_tomorrowExtras"
         static let totalStarsLit  = "nimbus_totalStarsLit"
         static let dailyStarsLit  = "nimbus_dailyStarsLit"
         static let userName       = "nimbus_userName"
@@ -128,6 +130,30 @@ class HabitViewModel: ObservableObject {
         save()
     }
 
+    // MARK: - Tomorrow Planner
+
+    func toggleSkipTomorrow(_ task: HabitTask) {
+        guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
+        tasks[index].isSkippedTomorrow.toggle()
+        save()
+    }
+
+    func addTomorrowExtra(title: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        tomorrowExtras.append(HabitTask(title: trimmed))
+        save()
+    }
+
+    func removeTomorrowExtra(_ task: HabitTask) {
+        tomorrowExtras.removeAll { $0.id == task.id }
+        save()
+    }
+
+    var hasTomorrowPlan: Bool {
+        tasks.contains { $0.isSkippedTomorrow } || !tomorrowExtras.isEmpty
+    }
+
     // MARK: - Haptics
 
     private func prepareHaptics() {
@@ -182,6 +208,9 @@ class HabitViewModel: ObservableObject {
         if let encoded = try? JSONEncoder().encode(tasks) {
             d.set(encoded, forKey: Keys.tasks)
         }
+        if let encoded = try? JSONEncoder().encode(tomorrowExtras) {
+            d.set(encoded, forKey: Keys.tomorrowExtras)
+        }
         if let encoded = try? JSONEncoder().encode(shield) {
             d.set(encoded, forKey: Keys.shield)
         }
@@ -203,6 +232,10 @@ class HabitViewModel: ObservableObject {
         if let data    = d.data(forKey: Keys.tasks),
            let decoded = try? JSONDecoder().decode([HabitTask].self, from: data) {
             tasks = decoded
+        }
+        if let data    = d.data(forKey: Keys.tomorrowExtras),
+           let decoded = try? JSONDecoder().decode([HabitTask].self, from: data) {
+            tomorrowExtras = decoded
         }
         if let data    = d.data(forKey: Keys.shield),
            let decoded = try? JSONDecoder().decode(Shield.self, from: data) {
