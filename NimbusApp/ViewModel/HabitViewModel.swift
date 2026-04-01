@@ -81,8 +81,9 @@ class HabitViewModel: ObservableObject {
         guard let index = tasks.firstIndex(where: { $0.id == task.id }),
               !tasks[index].isDismissedToday else { return }
         tasks[index].isCompleted.toggle()
+        let isNowCompleted = tasks[index].isCompleted
 
-        if tasks[index].isCompleted {
+        if isNowCompleted {
             totalStarsLit += 1
             dailyStarsLit += 1
             lastCompletedId = task.id
@@ -96,30 +97,66 @@ class HabitViewModel: ObservableObject {
             dailyStarsLit = max(0, dailyStarsLit - 1)
         }
         save()
+
+        let taskId = task.id
+        Task {
+            do {
+                let response = try await APIClient.shared.updateTask(id: taskId, isCompleted: isNowCompleted)
+                await MainActor.run {
+                    // Reconcile star counts with server's authoritative values
+                    self.totalStarsLit = response.user.totalStars
+                    self.dailyStarsLit = response.user.dailyStars
+                    self.save()
+                }
+            } catch {
+                // Local state is kept; will reconcile on next GET /users/me
+            }
+        }
     }
 
     func snoozeTask(_ task: HabitTask) {
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         tasks[index].isSnoozed = true
         save()
+        let taskId = task.id
+        Task { try? await APIClient.shared.updateTask(id: taskId, isSnoozed: true) }
     }
 
     func dismissTask(_ task: HabitTask) {
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         tasks[index].isDismissedToday = true
         save()
+        let taskId = task.id
+        Task { try? await APIClient.shared.updateTask(id: taskId, isDismissedToday: true) }
     }
 
     func addTask(title: String) {
         let trimmed = title.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        tasks.append(HabitTask(title: trimmed))
+        // Optimistic insert with a temp UUID; replaced with server UUID on response
+        let temp = HabitTask(title: trimmed)
+        tasks.append(temp)
         save()
+        Task {
+            do {
+                let dto = try await APIClient.shared.createTask(title: trimmed)
+                await MainActor.run {
+                    if let idx = self.tasks.firstIndex(where: { $0.id == temp.id }) {
+                        self.tasks[idx] = HabitTask(from: dto)
+                        self.save()
+                    }
+                }
+            } catch {
+                // Temp task stays; will de-sync until next reload
+            }
+        }
     }
 
     func removeTask(_ task: HabitTask) {
         tasks.removeAll { $0.id == task.id }
         save()
+        let taskId = task.id
+        Task { try? await APIClient.shared.deleteTask(id: taskId) }
     }
 
     func renameTask(_ task: HabitTask, title: String) {
@@ -128,6 +165,8 @@ class HabitViewModel: ObservableObject {
               let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         tasks[index].title = trimmed
         save()
+        let taskId = task.id
+        Task { try? await APIClient.shared.updateTask(id: taskId, title: trimmed) }
     }
 
     // MARK: - Tomorrow Planner
@@ -135,23 +174,70 @@ class HabitViewModel: ObservableObject {
     func toggleSkipTomorrow(_ task: HabitTask) {
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         tasks[index].isSkippedTomorrow.toggle()
+        let newValue = tasks[index].isSkippedTomorrow
         save()
+        let taskId = task.id
+        Task { try? await APIClient.shared.updateTask(id: taskId, isSkippedTomorrow: newValue) }
     }
 
     func addTomorrowExtra(title: String) {
         let trimmed = title.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        tomorrowExtras.append(HabitTask(title: trimmed))
+        let temp = HabitTask(title: trimmed)
+        tomorrowExtras.append(temp)
         save()
+        Task {
+            do {
+                let dto = try await APIClient.shared.createTomorrowExtra(title: trimmed)
+                await MainActor.run {
+                    if let idx = self.tomorrowExtras.firstIndex(where: { $0.id == temp.id }) {
+                        self.tomorrowExtras[idx] = HabitTask(from: dto)
+                        self.save()
+                    }
+                }
+            } catch {
+                // Temp task stays
+            }
+        }
     }
 
     func removeTomorrowExtra(_ task: HabitTask) {
         tomorrowExtras.removeAll { $0.id == task.id }
         save()
+        let taskId = task.id
+        Task { try? await APIClient.shared.deleteTomorrowExtra(id: taskId) }
     }
 
     var hasTomorrowPlan: Bool {
         tasks.contains { $0.isSkippedTomorrow } || !tomorrowExtras.isEmpty
+    }
+
+    // MARK: - Service sync
+
+    /// Fetches fresh state from the service and updates all published properties.
+    /// Falls back silently to the cached UserDefaults state on any error.
+    func reload() {
+        guard APIClient.shared.isRegistered else { load(); return }
+        Task {
+            do {
+                let dto = try await APIClient.shared.getMe()
+                await MainActor.run { self.applyUserDTO(dto) }
+            } catch {
+                // Service unavailable — keep cached state
+            }
+        }
+    }
+
+    private func applyUserDTO(_ dto: UserDTO) {
+        userName      = dto.name
+        selectedVibe  = VibeType(serviceString: dto.vibe) ?? .bestie
+        totalStarsLit = dto.totalStars
+        dailyStarsLit = dto.dailyStars
+        shield        = Shield(from: dto.shield)
+        tasks         = dto.tasks.map { HabitTask(from: $0) }
+        tomorrowExtras = dto.tomorrowExtras.map { HabitTask(from: $0) }
+        // listPin is not returned by the service for security — keep the locally stored value
+        save()
     }
 
     // MARK: - Haptics
@@ -196,7 +282,7 @@ class HabitViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Persistence
+    // MARK: - Local cache (UserDefaults)
 
     func save() {
         let d = UserDefaults.standard
@@ -215,9 +301,6 @@ class HabitViewModel: ObservableObject {
             d.set(encoded, forKey: Keys.shield)
         }
     }
-
-    /// Re-reads all persisted data. Call after onboarding completes.
-    func reload() { load() }
 
     private func load() {
         let d = UserDefaults.standard

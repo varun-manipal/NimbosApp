@@ -6,10 +6,18 @@
 //
 
 import SwiftUI
+import GoogleSignIn
 
 @main
 struct NimbusAppApp: App {
     @AppStorage(OnboardingViewModel.onboardingCompleteKey) private var isOnboardingComplete = false
+    @AppStorage("nimbus_googleAuthComplete") private var isGoogleAuthComplete = false
+
+    init() {
+        GIDSignIn.sharedInstance.configuration = GIDConfiguration(
+            clientID: "181444937879-21hnunq53cqk2l2hr3llptjjiarll5qh.apps.googleusercontent.com"
+        )
+    }
     @StateObject private var habitViewModel = HabitViewModel()
     @StateObject private var dailyRefresh   = DailyRefreshViewModel()
     @StateObject private var notifications  = NotificationViewModel()
@@ -20,11 +28,16 @@ struct NimbusAppApp: App {
             Group {
                 if isOnboardingComplete {
                     MainDashboardView(viewModel: habitViewModel)
-                } else {
+                } else if isGoogleAuthComplete {
                     OnboardingFlowView()
+                } else {
+                    GoogleSignInGateView()
                 }
             }
             .animation(.easeInOut(duration: 0.8), value: isOnboardingComplete)
+            .onOpenURL { url in
+                GIDSignIn.sharedInstance.handle(url)
+            }
             .onChange(of: isOnboardingComplete) { completed in
                 if completed {
                     // Onboarding just finished — reload HabitViewModel from the

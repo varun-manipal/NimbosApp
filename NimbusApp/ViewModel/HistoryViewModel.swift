@@ -6,12 +6,50 @@ class HistoryViewModel: ObservableObject {
     @Published var selectedSnapshot: DailySnapshot? = nil
     @Published var displayMonth: Date = Calendar.current.startOfDay(for: Date())
 
+    private let monthFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
+    private let snapshotDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
     init() {
         reload()
     }
 
     func reload() {
-        snapshots = DailyRefreshViewModel().loadSnapshots()
+        let monthStr = monthFormatter.string(from: displayMonth)
+
+        guard APIClient.shared.isRegistered else {
+            snapshots = DailyRefreshViewModel().loadSnapshots()
+            return
+        }
+
+        Task {
+            do {
+                let dtos = try await APIClient.shared.getSnapshots(month: monthStr)
+                await MainActor.run {
+                    self.snapshots = dtos.compactMap { dto in
+                        guard let date = self.snapshotDateFormatter.date(from: dto.date) else { return nil }
+                        return DailySnapshot(date: date,
+                                             completionPercentage: dto.completionPercentage,
+                                             starsLit: dto.starsLit)
+                    }
+                }
+            } catch {
+                // Fall back to local cache
+                await MainActor.run {
+                    self.snapshots = DailyRefreshViewModel().loadSnapshots()
+                }
+            }
+        }
     }
 
     // MARK: - Month Navigation
@@ -30,11 +68,13 @@ class HistoryViewModel: ObservableObject {
 
     func previousMonth() {
         displayMonth = Calendar.current.date(byAdding: .month, value: -1, to: displayMonth) ?? displayMonth
+        reload()
     }
 
     func nextMonth() {
         guard canGoNext else { return }
         displayMonth = Calendar.current.date(byAdding: .month, value: 1, to: displayMonth) ?? displayMonth
+        reload()
     }
 
     // MARK: - Grid
