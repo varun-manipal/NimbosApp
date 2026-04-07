@@ -90,7 +90,7 @@ struct MainDashboardView: View {
                     HStack {
                         Text("Today's Tasks")
                             .font(.system(.caption))
-                            .foregroundColor(.cyan)
+                            .foregroundColor(.primary)
                             .tracking(2)
                         Spacer()
                         Button {
@@ -102,7 +102,7 @@ struct MainDashboardView: View {
                         } label: {
                             Image(systemName: "pencil")
                                 .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(.white.opacity(0.45))
+                                .foregroundColor(.primary.opacity(0.5))
                         }
                     }
 
@@ -118,7 +118,7 @@ struct MainDashboardView: View {
                     }
                 }
                 .padding(20)
-                .background(.ultraThinMaterial.opacity(0.2))
+                .background(.ultraThinMaterial.opacity(0.55))
                 .cornerRadius(24)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 40)
@@ -158,6 +158,13 @@ struct MainDashboardView: View {
                     .animation(.spring(response: 0.6, dampingFraction: 0.7), value: viewModel.dailyStarsLit)
                     .overlay(glowOverlay)
                     .overlay(shieldSphere)
+                    .overlay(
+                        LinearGradient(
+                            colors: [.clear, .black.opacity(0.35)],
+                            startPoint: .center,
+                            endPoint: .bottom
+                        )
+                    )
                     .animation(.easeInOut(duration: 0.8), value: viewModel.nimbosStateImage)
             }
             .ignoresSafeArea()
@@ -350,10 +357,10 @@ struct StarShardHeader: View {
                 Spacer()
                 Image(systemName: "sparkles")
             }
-            .foregroundColor(.white)
+            .foregroundColor(.primary)
 
             ZStack(alignment: .leading) {
-                Capsule().fill(.white.opacity(0.1)).frame(height: 6)
+                Capsule().fill(.black.opacity(0.1)).frame(height: 6)
                 Capsule()
                     .fill(LinearGradient(colors: [.cyan, .blue], startPoint: .leading, endPoint: .trailing))
                     .frame(width: UIScreen.main.bounds.width * 0.85 * CGFloat(progress), height: 6)
@@ -361,7 +368,11 @@ struct StarShardHeader: View {
                     .animation(.spring(response: 0.4, dampingFraction: 0.7), value: progress)
             }
         }
-        .padding(.horizontal, 30)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 20)
+        .background(.ultraThinMaterial.opacity(0.55))
+        .cornerRadius(16)
+        .padding(.horizontal, 20)
     }
 }
 
@@ -378,14 +389,14 @@ struct TaskHUDRow: View {
             Text(task.title)
                 .font(.system(.body, design: .rounded))
                 .foregroundColor(rowTextColor)
-                .strikethrough(task.isDismissedToday, color: .white.opacity(0.2))
+                .strikethrough(task.isDismissedToday, color: .primary.opacity(0.25))
 
             Spacer()
 
             if task.isDismissedToday {
                 Image(systemName: "xmark.circle")
                     .font(.system(size: 14))
-                    .foregroundColor(.white.opacity(0.2))
+                    .foregroundColor(.primary.opacity(0.25))
             } else {
                 Button(action: {
                     withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
@@ -394,7 +405,7 @@ struct TaskHUDRow: View {
                 }) {
                     ZStack {
                         Circle()
-                            .stroke(task.isCompleted ? Color.cyan : Color.white.opacity(0.2), lineWidth: 2)
+                            .stroke(task.isCompleted ? Color.cyan : Color.primary.opacity(0.25), lineWidth: 2)
                             .frame(width: 28, height: 28)
                         if task.isCompleted {
                             Image(systemName: "star.fill")
@@ -430,9 +441,9 @@ struct TaskHUDRow: View {
     }
 
     private var rowTextColor: Color {
-        if task.isDismissedToday { return .white.opacity(0.25) }
-        if task.isCompleted      { return .white.opacity(0.4)  }
-        return .white
+        if task.isDismissedToday { return .primary.opacity(0.25) }
+        if task.isCompleted      { return .primary.opacity(0.4)  }
+        return .primary
     }
 }
 
@@ -448,13 +459,13 @@ struct NavIconButton: View {
             VStack(spacing: 4) {
                 Image(systemName: icon)
                     .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(.white.opacity(0.85))
+                    .foregroundColor(.primary)
                     .frame(width: 44, height: 44)
-                    .background(.ultraThinMaterial.opacity(0.3))
+                    .background(.ultraThinMaterial.opacity(0.6))
                     .clipShape(Circle())
                 Text(label)
                     .font(.system(size: 9, design: .monospaced))
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(.primary)
                     .tracking(1)
             }
         }

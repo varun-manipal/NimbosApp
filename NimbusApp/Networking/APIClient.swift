@@ -61,6 +61,16 @@ struct GoogleAuthResponse: Decodable {
     let email: String?
 }
 
+struct AppleAuthResponse: Decodable {
+    let userId: UUID?
+    let token: String?
+    let isNewUser: Bool
+    let user: UserDTO?
+    let appleId: String?
+    let email: String?
+    let fullName: String?
+}
+
 struct NewDayResponse: Decodable {
     let wasNewDay: Bool
     let snapshot: SnapshotDTO?
@@ -123,7 +133,7 @@ extension Shield {
 final class APIClient {
     static let shared = APIClient()
 
-    let baseURL = "http://localhost:5000"
+    let baseURL = "https://nimbos.runasp.net"
 
     private enum StorageKeys {
         static let token    = "nimbus_token"
@@ -197,16 +207,29 @@ final class APIClient {
     // MARK: - Users
 
     func register(deviceId: String, name: String, vibe: String, pin: String?, tasks: [String],
-                  googleId: String? = nil, email: String? = nil) async throws -> RegisterResponse {
+                  googleId: String? = nil, appleId: String? = nil, email: String? = nil) async throws -> RegisterResponse {
         struct Body: Encodable {
             let deviceId: String; let name: String; let vibe: String
             let pin: String?; let tasks: [String]
-            let googleId: String?; let email: String?
+            let googleId: String?; let appleId: String?; let email: String?
         }
         let body = try encode(Body(deviceId: deviceId, name: name, vibe: vibe, pin: pin,
-                                   tasks: tasks, googleId: googleId, email: email))
+                                   tasks: tasks, googleId: googleId, appleId: appleId, email: email))
         // Registration does not require auth — build request manually
         guard let url = URL(string: baseURL + "/users") else {
+            throw APIError.networkError(URLError(.badURL))
+        }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.httpBody = body
+        return try await perform(req)
+    }
+
+    func appleAuth(userIdentifier: String, email: String?, fullName: String?) async throws -> AppleAuthResponse {
+        struct Body: Encodable { let userIdentifier: String; let deviceId: String; let email: String?; let fullName: String? }
+        let body = try encode(Body(userIdentifier: userIdentifier, deviceId: APIClient.deviceId, email: email, fullName: fullName))
+        guard let url = URL(string: baseURL + "/auth/apple") else {
             throw APIError.networkError(URLError(.badURL))
         }
         var req = URLRequest(url: url)
