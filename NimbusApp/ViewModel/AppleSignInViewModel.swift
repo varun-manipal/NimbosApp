@@ -47,6 +47,8 @@ class AppleSignInViewModel: NSObject, ObservableObject, ASAuthorizationControlle
                     UserDefaults.standard.set(true, forKey: "nimbus_appleAuthComplete")
                 } else {
                     APIClient.shared.saveToken(response.token!)
+                    if let email = response.email { UserDefaults.standard.set(email, forKey: "nimbus_email") }
+                    if let role = response.user?.role { UserDefaults.standard.set(role, forKey: OnboardingViewModel.roleKey) }
                     UserDefaults.standard.set(true, forKey: OnboardingViewModel.onboardingCompleteKey)
                 }
             } catch {

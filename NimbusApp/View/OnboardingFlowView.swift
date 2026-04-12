@@ -9,10 +9,17 @@ struct OnboardingFlowView: View {
                 .ignoresSafeArea()
 
             Group {
+
                 switch viewModel.currentStep {
                 case .identity:
                     IdentityView { name in
                         viewModel.setName(name)
+                    }
+                    .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
+
+                case .roleSelection:
+                    RoleSelectionView { role, inviteCode, email in
+                        viewModel.setRole(role, inviteCode: inviteCode, email: email)
                     }
                     .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
 
@@ -27,15 +34,32 @@ struct OnboardingFlowView: View {
                         viewModel.setVibe(vibe)
                     }
                     .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
-
-                case .pinSetup:
-                    PinEntryView(mode: .setup) { pin in
-                        viewModel.setPin(pin)
-                        // setPin() saves everything and flips nimbus_onboardingComplete.
-                        // NimbusAppApp's @AppStorage reacts and swaps to MainDashboardView.
-                    }
-                    .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .opacity))
                 }
+            }
+
+            // Back button — shown on every step except the first
+            if viewModel.currentStep != .identity {
+                VStack {
+                    HStack {
+                        Button(action: viewModel.goBack) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "chevron.left")
+                                    .font(.system(size: 16, weight: .medium))
+                                Text("Back")
+                                    .font(.system(.subheadline, design: .rounded).weight(.medium))
+                            }
+                            .foregroundColor(.white.opacity(0.7))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Capsule().fill(.white.opacity(0.08)))
+                        }
+                        .padding(.leading, 16)
+                        .padding(.top, 56)
+                        Spacer()
+                    }
+                    Spacer()
+                }
+                .transition(.opacity)
             }
         }
     }
@@ -76,9 +100,9 @@ struct OnboardingBackground: View {
     private var vibeColor: Color {
         switch step {
         case .identity:      return .gray
+        case .roleSelection: return .purple
         case .constellation: return .blue
         case .vibeCheck:     return vibe == .bestie ? .pink : .indigo
-        case .pinSetup:      return .cyan
         }
     }
 }

@@ -27,12 +27,17 @@ class GoogleSignInViewModel: ObservableObject {
                 // Cache Google credentials for use at end of onboarding
                 UserDefaults.standard.set(response.googleId, forKey: "nimbus_pendingGoogleId")
                 UserDefaults.standard.set(response.email, forKey: "nimbus_pendingEmail")
+                // Cache first name to pre-populate the identity screen
+                let givenName = result.user.profile?.givenName ?? result.user.profile?.name
+                UserDefaults.standard.set(givenName, forKey: "nimbus_pendingGivenName")
                 // Triggers NimbusAppApp to show OnboardingFlowView
                 UserDefaults.standard.set(true, forKey: "nimbus_googleAuthComplete")
             } else {
                 // Returning user — save token and jump straight to dashboard
                 APIClient.shared.saveToken(response.token!)
-                // Triggers NimbusAppApp to show MainDashboardView
+                if let email = response.email { UserDefaults.standard.set(email, forKey: "nimbus_email") }
+                if let role = response.user?.role { UserDefaults.standard.set(role, forKey: OnboardingViewModel.roleKey) }
+                // Triggers NimbusAppApp to show MainDashboardView / ParentDashboardView
                 UserDefaults.standard.set(true, forKey: OnboardingViewModel.onboardingCompleteKey)
             }
         } catch {

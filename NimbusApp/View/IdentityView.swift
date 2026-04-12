@@ -119,6 +119,12 @@ struct IdentityView: View {
             }
             .padding(.bottom, 50)
         }
+        .onAppear {
+            if name.isEmpty, let given = UserDefaults.standard.string(forKey: "nimbus_pendingGivenName") {
+                name = given
+                UserDefaults.standard.removeObject(forKey: "nimbus_pendingGivenName")
+            }
+        }
     }
 }
 

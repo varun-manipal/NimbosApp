@@ -14,6 +14,7 @@ enum APIError: Error {
 struct UserDTO: Decodable {
     let name: String
     let vibe: String
+    let role: String?
     let totalStars: Int
     let dailyStars: Int
     let shield: ShieldDTO
@@ -69,6 +70,35 @@ struct AppleAuthResponse: Decodable {
     let appleId: String?
     let email: String?
     let fullName: String?
+}
+
+struct FamilyMemberDTO: Decodable {
+    let userId: UUID
+    let name: String
+    let role: String
+    let totalStars: Int
+    let dailyStars: Int
+}
+
+struct FamilyResponse: Decodable {
+    let familyId: UUID
+    let name: String
+    let members: [FamilyMemberDTO]
+}
+
+struct InviteResponse: Decodable {
+    let inviteCode: String
+    let email: String
+}
+
+struct ChildProgressDTO: Decodable {
+    let userId: UUID
+    let name: String
+    let totalStars: Int
+    let dailyStars: Int
+    let dailyCompletionPercentage: Double
+    let shield: ShieldDTO
+    let tasks: [TaskDTO]
 }
 
 struct NewDayResponse: Decodable {
@@ -320,6 +350,73 @@ final class APIClient {
     func getSnapshots(month: String) async throws -> [SnapshotDTO] {
         let encoded = month.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? month
         let req = try makeRequest("/daily/snapshots?month=\(encoded)")
+        return try await perform(req)
+    }
+
+    // MARK: - Family
+
+    func createFamily(name: String) async throws -> FamilyResponse {
+        struct Body: Encodable { let familyName: String }
+        let body = try encode(Body(familyName: name))
+        let req = try makeRequest("/family", method: "POST", body: body)
+        return try await perform(req)
+    }
+
+    func deleteFamilyInvite(inviteCode: String) async throws {
+        let req = try makeRequest("/family/invites/\(inviteCode)", method: "DELETE")
+        try await performVoid(req)
+    }
+
+    func getPendingInvites() async throws -> [InviteResponse] {
+        let req = try makeRequest("/family/invites")
+        return try await perform(req)
+    }
+
+    func createFamilyInvite(email: String) async throws -> InviteResponse {
+        struct Body: Encodable { let email: String }
+        let body = try encode(Body(email: email))
+        let req = try makeRequest("/family/invites", method: "POST", body: body)
+        return try await perform(req)
+    }
+
+    func joinFamily(inviteCode: String, email: String) async throws -> FamilyResponse {
+        struct Body: Encodable { let inviteCode: String; let email: String }
+        let body = try encode(Body(inviteCode: inviteCode, email: email))
+        let req = try makeRequest("/family/join", method: "POST", body: body)
+        return try await perform(req)
+    }
+
+    func getFamily() async throws -> FamilyResponse {
+        let req = try makeRequest("/family")
+        return try await perform(req)
+    }
+
+    func getChildren() async throws -> [ChildProgressDTO] {
+        let req = try makeRequest("/family/children")
+        return try await perform(req)
+    }
+
+    func getChild(_ childId: UUID) async throws -> ChildProgressDTO {
+        let req = try makeRequest("/family/children/\(childId.uuidString.lowercased())")
+        return try await perform(req)
+    }
+
+    func addTaskToChild(_ childId: UUID, title: String) async throws -> TaskDTO {
+        struct Body: Encodable { let title: String }
+        let body = try encode(Body(title: title))
+        let req = try makeRequest("/family/children/\(childId.uuidString.lowercased())/tasks", method: "POST", body: body)
+        return try await perform(req)
+    }
+
+    func removeTaskFromChild(_ childId: UUID, taskId: UUID) async throws {
+        let req = try makeRequest("/family/children/\(childId.uuidString.lowercased())/tasks/\(taskId.uuidString.lowercased())", method: "DELETE")
+        try await performVoid(req)
+    }
+
+    func renameTaskForChild(_ childId: UUID, taskId: UUID, title: String) async throws -> TaskDTO {
+        struct Body: Encodable { let title: String? }
+        let body = try encode(Body(title: title))
+        let req = try makeRequest("/family/children/\(childId.uuidString.lowercased())/tasks/\(taskId.uuidString.lowercased())", method: "PATCH", body: body)
         return try await perform(req)
     }
 }

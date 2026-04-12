@@ -12,6 +12,7 @@ import GoogleSignIn
 struct NimbusAppApp: App {
     @AppStorage(OnboardingViewModel.onboardingCompleteKey) private var isOnboardingComplete = false
     @AppStorage("nimbus_googleAuthComplete") private var isGoogleAuthComplete = false
+    @AppStorage(OnboardingViewModel.roleKey) private var userRole = "solo"
 
     init() {
         GIDSignIn.sharedInstance.configuration = GIDConfiguration(
@@ -21,13 +22,18 @@ struct NimbusAppApp: App {
     @StateObject private var habitViewModel = HabitViewModel()
     @StateObject private var dailyRefresh   = DailyRefreshViewModel()
     @StateObject private var notifications  = NotificationViewModel()
+    @StateObject private var familyViewModel = FamilyViewModel()
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             Group {
                 if isOnboardingComplete {
-                    MainDashboardView(viewModel: habitViewModel)
+                    if userRole == UserRole.parent.rawValue {
+                        ParentDashboardView(viewModel: familyViewModel)
+                    } else {
+                        MainDashboardView(viewModel: habitViewModel)
+                    }
                 } else if isGoogleAuthComplete {
                     OnboardingFlowView()
                 } else {

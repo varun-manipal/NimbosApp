@@ -15,6 +15,7 @@ struct MainDashboardView: View {
     @State private var showManageTasks = false
     @State private var showPinGate = false
     @State private var showTomorrowPlanner = false
+    @State private var showProfile = false
 
     /// Nimbos floats upward as tasks are completed. Capped at 48pt.
     private var nimbosLiftOffset: CGFloat {
@@ -125,7 +126,24 @@ struct MainDashboardView: View {
                 .shadow(color: .black.opacity(0.3), radius: 20)
             }
 
-            // 6. Morning Mist overlay — first open of a new day
+            // 6. Profile icon — aligned with StarShardHeader row
+            VStack {
+                HStack {
+                    Spacer()
+                    Button { showProfile = true } label: {
+                        Image(systemName: "person.circle")
+                            .font(.system(size: 22, weight: .light))
+                            .foregroundColor(.white.opacity(0.85))
+                            .padding(9)
+                            .background(Circle().fill(.ultraThinMaterial.opacity(0.6)))
+                    }
+                    .padding(.trailing, 20)
+                }
+                .padding(.top, 8)
+                Spacer()
+            }
+
+            // 7. Morning Mist overlay — first open of a new day
             if viewModel.showMorningMist {
                 MorningMistOverlay(userName: viewModel.userName) {
                     withAnimation(.easeOut(duration: 0.8)) {
@@ -227,6 +245,11 @@ struct MainDashboardView: View {
             )
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
+        }
+        .sheet(isPresented: $showProfile) {
+            ProfileView(viewModel: viewModel)
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
         }
     }
 
