@@ -103,6 +103,7 @@ class OnboardingViewModel: ObservableObject {
                     vibe: selectedVibe.serviceValue,
                     pin: nil,
                     tasks: role == .parent ? [] : selectedHabits.map { $0.title },
+                    role: role.rawValue,
                     googleId: googleId,
                     appleId: appleId,
                     email: googleEmail ?? appleEmail
@@ -120,14 +121,24 @@ class OnboardingViewModel: ObservableObject {
                     UserDefaults.standard.removeObject(forKey: key)
                 }
 
-                // Family setup
+                // Family setup.
+                // createFamily is now idempotent on the server — a 200 or 409 both mean the
+                // user's DB role is Parent. We use try? so a transient network failure here
+                // does NOT block onboarding; the role was already set to "parent" on the User
+                // row by the /users registration call above.
                 if role == .parent {
                     _ = try? await APIClient.shared.createFamily(name: "\(userName)'s Family")
+                    // Belt-and-suspenders: ensure the local role key is "parent" so the router
+                    // shows ParentDashboardView regardless of any async race on applyUserDTO.
+                    UserDefaults.standard.set(UserRole.parent.rawValue, forKey: Self.roleKey)
                 } else if role == .child && !inviteCode.isEmpty {
                     _ = try? await APIClient.shared.joinFamily(inviteCode: inviteCode, email: childEmail)
                 }
 
             } catch {
+                // Registration itself failed — persist local-only state so the user can still
+                // use the app offline, and keep whatever role was written by setRole() so
+                // routing is consistent with the user's stated intent.
                 let vm = buildHabitViewModel()
                 vm.save()
             }

@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 struct InviteCodeView: View {
     @ObservedObject var viewModel: FamilyViewModel
@@ -146,7 +145,7 @@ struct InviteCodeView: View {
             .padding(.horizontal, 8)
         }
         .task {
-            await viewModel.loadFamily()
+            viewModel.errorMessage = nil
         }
     }
 

@@ -46,9 +46,16 @@ class AppleSignInViewModel: NSObject, ObservableObject, ASAuthorizationControlle
                     UserDefaults.standard.set(response.fullName, forKey: "nimbus_pendingFullName")
                     UserDefaults.standard.set(true, forKey: "nimbus_appleAuthComplete")
                 } else {
-                    APIClient.shared.saveToken(response.token!)
+                    guard let token = response.token else {
+                        errorMessage = "Sign in failed. Please try again."
+                        return
+                    }
+                    APIClient.shared.saveToken(token)
                     if let email = response.email { UserDefaults.standard.set(email, forKey: "nimbus_email") }
-                    if let role = response.user?.role { UserDefaults.standard.set(role, forKey: OnboardingViewModel.roleKey) }
+                    // Always write the role before setting onboardingComplete so the routing
+                    // check in NimbusAppApp reads the correct value on the same render pass.
+                    let role = response.user?.role ?? "solo"
+                    UserDefaults.standard.set(role, forKey: OnboardingViewModel.roleKey)
                     UserDefaults.standard.set(true, forKey: OnboardingViewModel.onboardingCompleteKey)
                 }
             } catch {

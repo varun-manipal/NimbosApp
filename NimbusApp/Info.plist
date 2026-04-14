@@ -2,6 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Google Sign-In URL scheme -->
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -13,5 +14,21 @@
 			</array>
 		</dict>
 	</array>
+
+	<!-- API base URL components — set per build configuration via xcconfig.
+	     APIClient reconstructs the full URL as $(APIBaseScheme)://$(APIBaseHost). -->
+	<key>APIBaseScheme</key>
+	<string>$(API_BASE_SCHEME)</string>
+	<key>APIBaseHost</key>
+	<string>$(API_BASE_HOST)</string>
+
+	<!-- Allow plain HTTP to localhost so the Dev scheme can reach a local server.
+	     NSAllowsLocalNetworking is an Apple-sanctioned ATS carve-out that only
+	     loosens restrictions for loopback addresses; it has no effect in PROD. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
 </dict>
 </plist>

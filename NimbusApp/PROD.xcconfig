@@ -1,0 +1,9 @@
+// PROD.xcconfig — NimbusApp Production environment
+//
+// Points to the hosted NimbosService at nimbos.runasp.net.
+//
+// NOTE: xcconfig files treat // as inline comments, so URLs cannot be written
+// literally. Store scheme and host separately; APIClient reconstructs the URL.
+
+API_BASE_SCHEME = https
+API_BASE_HOST = nimbos.runasp.net

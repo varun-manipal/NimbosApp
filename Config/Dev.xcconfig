@@ -1,0 +1,14 @@
+// Dev.xcconfig — NimbusApp Development environment
+//
+// Points to a local NimbosService instance (iOS Simulator).
+// For a physical device, change API_BASE_HOST to your Mac's LAN IP, e.g.:
+//   API_BASE_HOST = 192.168.1.42:5000
+//
+// NOTE: xcconfig files treat // as inline comments, so URLs cannot be written
+// literally. Store scheme and host separately; APIClient reconstructs the URL.
+
+API_BASE_SCHEME = http
+API_BASE_HOST = localhost:5000
+
+// Inject a compile-time flag consumed by #if DEV guards in Swift source.
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = $(inherited) DEV

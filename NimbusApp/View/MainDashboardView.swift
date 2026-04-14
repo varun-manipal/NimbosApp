@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MainDashboardView: View {
     @ObservedObject var viewModel: HabitViewModel
+    var onSignOut: (() -> Void)? = nil
 
     // MARK: - Local animation state (UI-only, not in VM)
     @State private var ringScale: CGFloat = 0.05
@@ -247,7 +248,7 @@ struct MainDashboardView: View {
             .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showProfile) {
-            ProfileView(viewModel: viewModel)
+            ProfileView(viewModel: viewModel, onSignOut: onSignOut)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }

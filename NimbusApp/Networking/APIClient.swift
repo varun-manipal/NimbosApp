@@ -163,7 +163,15 @@ extension Shield {
 final class APIClient {
     static let shared = APIClient()
 
-    let baseURL = "https://nimbos.runasp.net"
+    /// Base URL resolved from the active build configuration via Info.plist.
+    /// Dev xcconfig → http://localhost:5000
+    /// PROD xcconfig → https://nimbos.runasp.net
+    var baseURL: String {
+        let info   = Bundle.main.infoDictionary
+        let scheme = info?["APIBaseScheme"] as? String ?? "https"
+        let host   = info?["APIBaseHost"]   as? String ?? "nimbos.runasp.net"
+        return "\(scheme)://\(host)"
+    }
 
     private enum StorageKeys {
         static let token    = "nimbus_token"
@@ -237,14 +245,14 @@ final class APIClient {
     // MARK: - Users
 
     func register(deviceId: String, name: String, vibe: String, pin: String?, tasks: [String],
-                  googleId: String? = nil, appleId: String? = nil, email: String? = nil) async throws -> RegisterResponse {
+                  role: String? = nil, googleId: String? = nil, appleId: String? = nil, email: String? = nil) async throws -> RegisterResponse {
         struct Body: Encodable {
             let deviceId: String; let name: String; let vibe: String
-            let pin: String?; let tasks: [String]
+            let pin: String?; let tasks: [String]; let role: String?
             let googleId: String?; let appleId: String?; let email: String?
         }
         let body = try encode(Body(deviceId: deviceId, name: name, vibe: vibe, pin: pin,
-                                   tasks: tasks, googleId: googleId, appleId: appleId, email: email))
+                                   tasks: tasks, role: role, googleId: googleId, appleId: appleId, email: email))
         // Registration does not require auth — build request manually
         guard let url = URL(string: baseURL + "/users") else {
             throw APIError.networkError(URLError(.badURL))

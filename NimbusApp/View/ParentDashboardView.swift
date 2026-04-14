@@ -2,7 +2,8 @@ import SwiftUI
 
 struct ParentDashboardView: View {
     @ObservedObject var viewModel: FamilyViewModel
-    @StateObject private var habitViewModel = HabitViewModel()
+    @ObservedObject var habitViewModel: HabitViewModel
+    var onSignOut: (() -> Void)? = nil
     @State private var showInviteSheet = false
     @State private var showProfile = false
     @State private var selectedChild: ChildProgressDTO? = nil
@@ -121,7 +122,7 @@ struct ParentDashboardView: View {
             await viewModel.loadChildren()
         }
         .sheet(isPresented: $showProfile) {
-            ProfileView(viewModel: habitViewModel)
+            ProfileView(viewModel: habitViewModel, onSignOut: onSignOut)
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }

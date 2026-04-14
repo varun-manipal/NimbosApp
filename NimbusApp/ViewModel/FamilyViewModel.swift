@@ -9,12 +9,31 @@ class FamilyViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
 
-    // Loads family name; creates one if it doesn't exist yet.
-    func loadFamily() async {
-        guard APIClient.shared.isRegistered else { return }
+    // Clears all in-memory state on sign-out so the next user starts fresh.
+    func reset() {
+        children = []
+        pendingInvites = []
+        familyName = ""
+        errorMessage = nil
+    }
 
-        if let family = try? await APIClient.shared.getFamily() {
+    // Loads family name; creates one if the server reports none exists (404).
+    // Other errors (network failure, 5xx) abort early to avoid creating a family
+    // on transient failures, which could trigger the privilege-escalation path.
+    func loadFamily() async {
+        guard APIClient.shared.isRegistered, !isLoading else { return }
+
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            let family = try await APIClient.shared.getFamily()
             familyName = family.name
+            return
+        } catch APIError.httpError(404) {
+            // No family yet — fall through to create one
+        } catch {
+            // Network or server error — do not attempt creation
             return
         }
 

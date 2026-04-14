@@ -3,6 +3,7 @@ import GoogleSignIn
 
 struct ProfileView: View {
     @ObservedObject var viewModel: HabitViewModel
+    var onSignOut: (() -> Void)? = nil
     @Environment(\.dismiss) private var dismiss
 
     @AppStorage("nimbus_email") private var email: String = ""
@@ -153,11 +154,18 @@ struct ProfileView: View {
 
     private func signOut() {
         GIDSignIn.sharedInstance.signOut()
+        // Reset in-memory state immediately so the next user starts with a clean slate
+        viewModel.reset()
+        onSignOut?()
         let keys = [
             "nimbus_token", "nimbus_onboardingComplete",
-            "nimbus_googleAuthComplete", "nimbus_role",
+            "nimbus_googleAuthComplete", "nimbus_appleAuthComplete", "nimbus_role",
             "nimbus_email", "nimbus_userName", "nimbus_selectedVibe",
-            "nimbus_tasks", "nimbus_shield", "nimbus_pin"
+            "nimbus_tasks", "nimbus_tomorrowExtras", "nimbus_shield", "nimbus_pin",
+            "nimbus_totalStarsLit", "nimbus_dailyStarsLit",
+            // Pending auth staging keys (set during new-user Apple/Google onboarding)
+            "nimbus_pendingAppleId", "nimbus_pendingGoogleId",
+            "nimbus_pendingEmail", "nimbus_pendingFullName", "nimbus_pendingGivenName"
         ]
         keys.forEach { UserDefaults.standard.removeObject(forKey: $0) }
     }

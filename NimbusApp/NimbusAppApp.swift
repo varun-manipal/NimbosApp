@@ -12,6 +12,7 @@ import GoogleSignIn
 struct NimbusAppApp: App {
     @AppStorage(OnboardingViewModel.onboardingCompleteKey) private var isOnboardingComplete = false
     @AppStorage("nimbus_googleAuthComplete") private var isGoogleAuthComplete = false
+    @AppStorage("nimbus_appleAuthComplete") private var isAppleAuthComplete = false
     @AppStorage(OnboardingViewModel.roleKey) private var userRole = "solo"
 
     init() {
@@ -30,11 +31,13 @@ struct NimbusAppApp: App {
             Group {
                 if isOnboardingComplete {
                     if userRole == UserRole.parent.rawValue {
-                        ParentDashboardView(viewModel: familyViewModel)
+                        ParentDashboardView(viewModel: familyViewModel, habitViewModel: habitViewModel,
+                                            onSignOut: { familyViewModel.reset() })
                     } else {
-                        MainDashboardView(viewModel: habitViewModel)
+                        MainDashboardView(viewModel: habitViewModel,
+                                          onSignOut: { familyViewModel.reset() })
                     }
-                } else if isGoogleAuthComplete {
+                } else if isGoogleAuthComplete || isAppleAuthComplete {
                     OnboardingFlowView()
                 } else {
                     GoogleSignInGateView()

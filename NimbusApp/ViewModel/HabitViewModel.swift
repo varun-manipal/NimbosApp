@@ -212,6 +212,19 @@ class HabitViewModel: ObservableObject {
         tasks.contains { $0.isSkippedTomorrow } || !tomorrowExtras.isEmpty
     }
 
+    // MARK: - Reset (called on sign-out to clear in-memory state immediately)
+
+    func reset() {
+        tasks = []
+        tomorrowExtras = []
+        totalStarsLit = 0
+        dailyStarsLit = 0
+        userName = ""
+        selectedVibe = .bestie
+        listPin = ""
+        shield = Shield()
+    }
+
     // MARK: - Service sync
 
     /// Fetches fresh state from the service and updates all published properties.
@@ -237,6 +250,19 @@ class HabitViewModel: ObservableObject {
         tasks         = dto.tasks.map { HabitTask(from: $0) }
         tomorrowExtras = dto.tomorrowExtras.map { HabitTask(from: $0) }
         // listPin is not returned by the service for security — keep the locally stored value
+        // Always accept the server's authoritative role UNLESS the server returns "solo" and
+        // we already have a non-solo role stored locally. This prevents a stale or slow
+        // GET /users/me response from silently downgrading a parent/child back to solo
+        // while still allowing the server to promote a solo user to parent or child.
+        if let role = dto.role {
+            let currentRole = UserDefaults.standard.string(forKey: OnboardingViewModel.roleKey) ?? "solo"
+            let serverRole = role.lowercased()
+            // Accept the server role when: server says non-solo (always authoritative),
+            // OR the current local role is already solo (nothing to protect).
+            if serverRole != "solo" || currentRole == "solo" {
+                UserDefaults.standard.set(serverRole, forKey: OnboardingViewModel.roleKey)
+            }
+        }
         save()
     }
 

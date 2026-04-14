@@ -19,7 +19,9 @@
 		8BF6148E2F7BAEFA00F78342 /* Exceptions for "NimbusApp" folder in "NimbusApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Dev.xcconfig,
 				Info.plist,
+				PROD.xcconfig,
 			);
 			target = 8BBEA1682F6DFEF90033148D /* NimbusApp */;
 		};
@@ -152,6 +154,8 @@
 /* Begin XCBuildConfiguration section */
 		8BBEA1742F6DFEFA0033148D /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 8BBEA16B2F6DFEF90033148D /* NimbusApp */;
+			baseConfigurationReferenceRelativePath = Dev.xcconfig;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -214,6 +218,8 @@
 		};
 		8BBEA1752F6DFEFA0033148D /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 8BBEA16B2F6DFEF90033148D /* NimbusApp */;
+			baseConfigurationReferenceRelativePath = Dev.xcconfig;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -268,6 +274,8 @@
 		};
 		8BBEA1772F6DFEFA0033148D /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 8BBEA16B2F6DFEF90033148D /* NimbusApp */;
+			baseConfigurationReferenceRelativePath = Dev.xcconfig;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -315,6 +323,8 @@
 		};
 		8BBEA1782F6DFEFA0033148D /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 8BBEA16B2F6DFEF90033148D /* NimbusApp */;
+			baseConfigurationReferenceRelativePath = PROD.xcconfig;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
