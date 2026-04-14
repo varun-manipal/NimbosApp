@@ -170,7 +170,8 @@ struct MainDashboardView: View {
                 Image(viewModel.nimbosStateImage)
                     .resizable()
                     .scaledToFill()
-                    .frame(width: geo.size.width, height: geo.size.height, alignment: .bottom)
+                    .frame(width: geo.size.width, height: geo.size.height,
+                           alignment: UIDevice.current.userInterfaceIdiom == .pad ? .center : .bottom)
                     .clipped()
                     .scaleEffect(1.05)
                     .offset(y: nimbosLiftOffset)
