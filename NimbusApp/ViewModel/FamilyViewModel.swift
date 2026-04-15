@@ -46,9 +46,9 @@ class FamilyViewModel: ObservableObject {
     }
 
     // Creates an email-specific invite code for a child.
-    func createInvite(email: String) async -> String? {
+    func createInvite(email: String, role: String = "child") async -> String? {
         do {
-            let response = try await APIClient.shared.createFamilyInvite(email: email)
+            let response = try await APIClient.shared.createFamilyInvite(email: email, role: role)
             errorMessage = nil
             return response.inviteCode
         } catch APIError.httpError(let code) {
@@ -57,6 +57,10 @@ class FamilyViewModel: ObservableObject {
             errorMessage = "Network error: \(error.localizedDescription)"
         }
         return nil
+    }
+
+    func createCoParentInvite(email: String) async -> String? {
+        return await createInvite(email: email, role: "parent")
     }
 
     func deleteInvite(inviteCode: String) async {

@@ -60,7 +60,7 @@ struct RoleSelectionView: View {
                     RoleCard(
                         icon: "star.fill",
                         title: "I'm joining my family",
-                        subtitle: "My parent set up a family for me",
+                        subtitle: "Join as a child or co-parent — enter the code you were sent",
                         color: .orange,
                         isSelected: selectedRole == .child
                     ) {

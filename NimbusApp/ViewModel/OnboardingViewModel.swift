@@ -54,11 +54,11 @@ class OnboardingViewModel: ObservableObject {
         self.childEmail = email
         UserDefaults.standard.set(role.rawValue, forKey: Self.roleKey)
 
-        if role == .parent {
-            // Parents skip tasks/vibe — register immediately and go to dashboard
+        if role == .parent || !inviteCode.isEmpty {
+            // Parents and invite-joiners (child or co-parent) skip tasks/vibe — register immediately
             registerAndComplete()
         } else {
-            // Solo/Child — collect tasks and vibe first
+            // Solo users — collect tasks and vibe first
             withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
                 currentStep = .constellation
             }
@@ -133,6 +133,14 @@ class OnboardingViewModel: ObservableObject {
                     UserDefaults.standard.set(UserRole.parent.rawValue, forKey: Self.roleKey)
                 } else if role == .child && !inviteCode.isEmpty {
                     _ = try? await APIClient.shared.joinFamily(inviteCode: inviteCode, email: childEmail)
+                    // Ask the server for the authoritative role — the invite might be for a
+                    // co-parent, in which case the server sets User.Role = Parent. Update
+                    // UserDefaults now so routing goes to the right dashboard immediately.
+                    if let me = try? await APIClient.shared.getMe(), let serverRole = me.role {
+                        await MainActor.run {
+                            UserDefaults.standard.set(serverRole.lowercased(), forKey: Self.roleKey)
+                        }
+                    }
                 }
 
             } catch {

@@ -106,6 +106,18 @@ struct FamilyResponse: Decodable {
 struct InviteResponse: Decodable {
     let inviteCode: String
     let email: String
+    let role: String  // "child" | "parent"
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        inviteCode = try c.decode(String.self, forKey: .inviteCode)
+        email      = try c.decode(String.self, forKey: .email)
+        role       = (try? c.decode(String.self, forKey: .role)) ?? "child"
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case inviteCode, email, role
+    }
 }
 
 struct ChildProgressDTO: Decodable {
@@ -488,9 +500,9 @@ final class APIClient {
         return try await perform(req)
     }
 
-    func createFamilyInvite(email: String) async throws -> InviteResponse {
-        struct Body: Encodable { let email: String }
-        let body = try encode(Body(email: email))
+    func createFamilyInvite(email: String, role: String = "child") async throws -> InviteResponse {
+        struct Body: Encodable { let email: String; let role: String }
+        let body = try encode(Body(email: email, role: role))
         let req = try makeRequest("/family/invites", method: "POST", body: body)
         return try await perform(req)
     }

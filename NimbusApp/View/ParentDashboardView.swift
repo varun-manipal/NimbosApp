@@ -5,6 +5,7 @@ struct ParentDashboardView: View {
     @ObservedObject var habitViewModel: HabitViewModel
     var onSignOut: (() -> Void)? = nil
     @State private var showInviteSheet = false
+    @State private var showCoParentInviteSheet = false
     @State private var showProfile = false
     @State private var selectedChild: ChildProgressDTO? = nil
 
@@ -14,24 +15,42 @@ struct ParentDashboardView: View {
 
             VStack(spacing: 0) {
                 // Header
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(viewModel.familyName.isEmpty ? "My Family" : viewModel.familyName)
-                            .font(.system(.title2, design: .rounded).weight(.bold))
-                            .foregroundColor(.white)
-                        Text("Parent Dashboard")
-                            .font(.system(size: 12, design: .monospaced))
-                            .foregroundColor(.gray)
-                            .tracking(1)
-                    }
-                    Spacer()
-                    HStack(spacing: 10) {
+                VStack(spacing: 12) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(viewModel.familyName.isEmpty ? "My Family" : viewModel.familyName)
+                                .font(.system(.title2, design: .rounded).weight(.bold))
+                                .foregroundColor(.white)
+                            Text("Parent Dashboard")
+                                .font(.system(size: 12, design: .monospaced))
+                                .foregroundColor(.gray)
+                                .tracking(1)
+                        }
+                        Spacer()
                         Button { showProfile = true } label: {
                             Image(systemName: "person.circle")
                                 .font(.system(size: 22, weight: .light))
                                 .foregroundColor(.white.opacity(0.85))
                                 .padding(9)
                                 .background(Circle().fill(.ultraThinMaterial.opacity(0.6)))
+                        }
+                    }
+
+                    HStack(spacing: 10) {
+                        Spacer()
+                        Button { showCoParentInviteSheet = true } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: "person.2.badge.plus")
+                                Text("Co-Parent")
+                                    .font(.system(size: 12, weight: .medium))
+                            }
+                            .foregroundColor(.orange)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(
+                                Capsule().fill(Color.orange.opacity(0.12))
+                                    .overlay(Capsule().stroke(Color.orange.opacity(0.35), lineWidth: 1))
+                            )
                         }
                         Button { showInviteSheet = true } label: {
                             HStack(spacing: 6) {
@@ -51,7 +70,7 @@ struct ParentDashboardView: View {
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 60)
-                .padding(.bottom, 24)
+                .padding(.bottom, 16)
 
                 if viewModel.isLoading {
                     Spacer()
@@ -130,6 +149,11 @@ struct ParentDashboardView: View {
             Task { await viewModel.loadChildren() }
         }) {
             InviteCodeView(viewModel: viewModel)
+        }
+        .sheet(isPresented: $showCoParentInviteSheet, onDismiss: {
+            Task { await viewModel.loadChildren() }
+        }) {
+            CoParentInviteView(viewModel: viewModel)
         }
         .sheet(item: $selectedChild) { child in
             ChildDetailView(child: child, viewModel: viewModel)
@@ -220,10 +244,20 @@ private struct PendingInviteCard: View {
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(invite.email)
-                    .font(.system(.subheadline, design: .rounded).weight(.medium))
-                    .foregroundColor(.white)
-                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    Text(invite.email)
+                        .font(.system(.subheadline, design: .rounded).weight(.medium))
+                        .foregroundColor(.white)
+                        .lineLimit(1)
+                    if invite.role == "parent" {
+                        Text("CO-PARENT")
+                            .font(.system(size: 8, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.orange)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Capsule().fill(Color.orange.opacity(0.15)))
+                    }
+                }
                 HStack(spacing: 6) {
                     Text("Code: \(invite.inviteCode)")
                         .font(.system(size: 12, design: .monospaced))
