@@ -17,6 +17,14 @@ private let allMilestones: [Milestone] = [
 
 struct EvolutionTimelineView: View {
     let totalStarsLit: Int
+    /// Seed value shown immediately. View fetches fresh data independently.
+    var initialAwards: [MilestoneAwardDTO] = []
+    /// Called when the child taps "Claim Award" on a milestone card.
+    var onClaimAward: ((MilestoneAwardDTO) -> Void)? = nil
+    /// Async closure that fetches fresh awards without side effects.
+    var fetchAwards: (() async -> [MilestoneAwardDTO])? = nil
+
+    @State private var awards: [MilestoneAwardDTO] = []
 
     var body: some View {
         ZStack {
@@ -47,10 +55,13 @@ struct EvolutionTimelineView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 20) {
                         ForEach(allMilestones, id: \.shards) { milestone in
+                            let award = awards.first(where: { $0.milestoneShards == milestone.shards })
                             MilestoneCard(
                                 milestone: milestone,
                                 isUnlocked: totalStarsLit >= milestone.shards,
-                                isCurrent: currentMilestone?.shards == milestone.shards
+                                isCurrent: currentMilestone?.shards == milestone.shards,
+                                award: award,
+                                onClaimAward: onClaimAward
                             )
                         }
                     }
@@ -65,18 +76,31 @@ struct EvolutionTimelineView: View {
                         Text("Next: \(next.title) at \(next.shards) shards")
                             .font(.system(.caption, design: .monospaced))
                             .foregroundColor(.white.opacity(0.6))
-                        ZStack(alignment: .leading) {
-                            Capsule().fill(.white.opacity(0.1)).frame(height: 6)
-                            Capsule()
-                                .fill(LinearGradient(colors: [.cyan, next.accentColor],
-                                                     startPoint: .leading, endPoint: .trailing))
-                                .frame(width: UIScreen.main.bounds.width * 0.85 * CGFloat(progressToNext), height: 6)
-                                .shadow(color: .cyan.opacity(0.5), radius: 6)
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                Capsule().fill(.white.opacity(0.1)).frame(height: 6)
+                                Capsule()
+                                    .fill(LinearGradient(colors: [.cyan, next.accentColor],
+                                                         startPoint: .leading, endPoint: .trailing))
+                                    .frame(width: geo.size.width * CGFloat(progressToNext), height: 6)
+                                    .shadow(color: .cyan.opacity(0.5), radius: 6)
+                            }
                         }
+                        .frame(height: 6)
                         .padding(.horizontal, 30)
                     }
                     .padding(.bottom, 48)
                 }
+            }
+        }
+        .onAppear {
+            // Show cached data immediately so the view isn't blank
+            if awards.isEmpty { awards = initialAwards }
+        }
+        .task {
+            // Fetch fresh data in the background; update local state when ready
+            if let fetch = fetchAwards {
+                awards = await fetch()
             }
         }
     }
@@ -111,6 +135,8 @@ private struct MilestoneCard: View {
     let milestone: Milestone
     let isUnlocked: Bool
     let isCurrent: Bool
+    var award: MilestoneAwardDTO? = nil
+    var onClaimAward: ((MilestoneAwardDTO) -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 12) {
@@ -154,6 +180,30 @@ private struct MilestoneCard: View {
                 Text(milestone.subtitle)
                     .font(.system(.caption, design: .rounded))
                     .foregroundColor(isUnlocked ? milestone.accentColor : .white.opacity(0.2))
+
+                if isUnlocked, let award = award {
+                    if let claimedText = award.claimedAwardText {
+                        Text("✓ \(claimedText)")
+                            .font(.system(.caption2, design: .rounded))
+                            .foregroundColor(milestone.accentColor)
+                            .multilineTextAlignment(.center)
+                            .padding(.top, 2)
+                    } else if award.hasAwards, let onClaim = onClaimAward {
+                        Button {
+                            onClaim(award)
+                        } label: {
+                            Label("Claim Award", systemImage: "gift.fill")
+                                .font(.system(.caption2, design: .rounded).weight(.semibold))
+                                .foregroundColor(.black)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(
+                                    Capsule().fill(milestone.accentColor)
+                                )
+                        }
+                        .padding(.top, 4)
+                    }
+                }
             }
         }
         .frame(width: 160)

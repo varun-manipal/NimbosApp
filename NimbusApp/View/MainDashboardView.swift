@@ -88,7 +88,7 @@ struct MainDashboardView: View {
                 }
 
                 // Checklist panel
-                VStack(alignment: .leading, spacing: 15) {
+                VStack(alignment: .leading, spacing: 0) {
                     HStack {
                         Text("Today's Tasks")
                             .font(.system(.caption))
@@ -107,17 +107,44 @@ struct MainDashboardView: View {
                                 .foregroundColor(.primary.opacity(0.5))
                         }
                     }
+                    .padding(.bottom, 15)
 
-                    ForEach($viewModel.tasks) { $task in
-                        if !task.isSnoozed {
-                            TaskHUDRow(
-                                task: $task,
-                                onToggle:  { viewModel.toggleTask(task)  },
-                                onSnooze:  { viewModel.snoozeTask(task)  },
-                                onDismiss: { viewModel.dismissTask(task) }
-                            )
+                    if viewModel.newParentTaskCount > 0 {
+                        HStack(spacing: 6) {
+                            Image(systemName: "person.fill.badge.plus")
+                            Text(viewModel.newParentTaskCount == 1
+                                 ? "1 new task added by parent"
+                                 : "\(viewModel.newParentTaskCount) new tasks added by parent")
+                            Spacer()
+                            Button { viewModel.newParentTaskCount = 0 } label: {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 10, weight: .semibold))
+                            }
+                        }
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundColor(.cyan)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(Color.cyan.opacity(0.12))
+                        .cornerRadius(10)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            ForEach($viewModel.tasks) { $task in
+                                if !task.isSnoozed {
+                                    TaskHUDRow(
+                                        task: $task,
+                                        onToggle:  { viewModel.toggleTask(task)  },
+                                        onSnooze:  { viewModel.snoozeTask(task)  },
+                                        onDismiss: { viewModel.dismissTask(task) }
+                                    )
+                                }
+                            }
                         }
                     }
+                    .refreshable { await viewModel.reloadAsync() }
                 }
                 .padding(20)
                 .background(.ultraThinMaterial.opacity(0.55))
@@ -154,16 +181,7 @@ struct MainDashboardView: View {
                 .transition(.opacity)
             }
 
-            // 7. Milestone video — plays when totalStarsLit hits 12
-            if viewModel.showMilestoneVideo {
-                MilestoneVideoOverlay {
-                    withAnimation(.easeOut(duration: 0.4)) {
-                        viewModel.showMilestoneVideo = false
-                    }
-                }
-                .ignoresSafeArea()
-                .transition(.opacity)
-            }
+
         }
         .background {
             GeometryReader { geo in
@@ -235,9 +253,25 @@ struct MainDashboardView: View {
                 .presentationDragIndicator(.visible)
         }
         .sheet(isPresented: $showEvolution) {
-            EvolutionTimelineView(totalStarsLit: viewModel.totalStarsLit)
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
+            EvolutionTimelineView(
+                totalStarsLit: viewModel.totalStarsLit,
+                initialAwards: viewModel.milestoneAwards,
+                onClaimAward: { award in
+                    showEvolution = false
+                    viewModel.pendingAwardClaim = award
+                },
+                fetchAwards: { await viewModel.fetchAwards() }
+            )
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
+        }
+        .fullScreenCover(item: $viewModel.pendingAwardClaim) { award in
+            AwardClaimView(award: award, onClaim: { index in
+                viewModel.pendingAwardClaim = nil
+                Task { await viewModel.claimAward(milestoneShards: award.milestoneShards, awardIndex: index) }
+            }, onDismiss: {
+                viewModel.pendingAwardClaim = nil
+            })
         }
         .sheet(isPresented: $showAura) {
             AuraCardView(
@@ -411,10 +445,20 @@ struct TaskHUDRow: View {
 
     var body: some View {
         HStack {
-            Text(task.title)
-                .font(.system(.body, design: .rounded))
-                .foregroundColor(rowTextColor)
-                .strikethrough(task.isDismissedToday, color: .primary.opacity(0.25))
+            VStack(alignment: .leading, spacing: 2) {
+                Text(task.title)
+                    .font(.system(.body, design: .rounded))
+                    .foregroundColor(rowTextColor)
+                    .strikethrough(task.isDismissedToday, color: .primary.opacity(0.25))
+                if task.addedByParent {
+                    Text("Added by parent")
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundColor(.purple.opacity(0.7))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Capsule().fill(.purple.opacity(0.12)))
+                }
+            }
 
             Spacer()
 

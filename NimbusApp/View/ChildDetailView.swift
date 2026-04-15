@@ -8,6 +8,7 @@ struct ChildDetailView: View {
     @State private var newTaskTitle = ""
     @State private var editingTask: TaskDTO? = nil
     @State private var editTitle = ""
+    @State private var showAwardsSetup = false
 
     var body: some View {
         NavigationStack {
@@ -24,6 +25,25 @@ struct ChildDetailView: View {
                     .padding(.horizontal, 20)
                     .padding(.vertical, 16)
                     .background(Color.white.opacity(0.04))
+
+                    // Awards summary
+                    let claimedOrPending = viewModel.selectedChildAwards.filter { $0.claimedAwardText != nil || $0.hasAwards }
+                    if !claimedOrPending.isEmpty {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 10) {
+                                ForEach(claimedOrPending, id: \.milestoneShards) { award in
+                                    if let claimed = award.claimedAwardText {
+                                        AwardStatusChip(shards: award.milestoneShards, text: claimed, state: .claimed)
+                                    } else if award.hasAwards {
+                                        AwardStatusChip(shards: award.milestoneShards, text: "Awaiting choice", state: .pending)
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 10)
+                        }
+                        .background(Color.white.opacity(0.03))
+                    }
 
                     // Task list
                     ScrollView {
@@ -77,10 +97,22 @@ struct ChildDetailView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showAwardsSetup = true
+                    } label: {
+                        Label("Awards", systemImage: "gift.fill")
+                            .foregroundColor(.yellow)
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
                         .foregroundColor(.purple)
                 }
+            }
+            .task { await viewModel.loadChildAwards(child.userId) }
+            .sheet(isPresented: $showAwardsSetup) {
+                MilestoneAwardsSetupView(child: child)
             }
             .alert("Rename Task", isPresented: Binding(
                 get: { editingTask != nil },
@@ -130,6 +162,31 @@ private struct StatBadge: View {
                 .tracking(0.5)
         }
         .frame(maxWidth: .infinity)
+    }
+}
+
+private struct AwardStatusChip: View {
+    enum State { case claimed, pending }
+    let shards: Int
+    let text: String
+    let state: State
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text("\(shards) shards")
+                .font(.system(size: 9, design: .monospaced))
+                .foregroundColor(.white.opacity(0.4))
+            Text(state == .claimed ? "✓ \(text)" : "⏳ \(text)")
+                .font(.system(.caption2, design: .rounded))
+                .foregroundColor(state == .claimed ? .cyan : .white.opacity(0.5))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(.white.opacity(state == .claimed ? 0.08 : 0.04))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.white.opacity(0.1), lineWidth: 1))
+        )
     }
 }
 

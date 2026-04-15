@@ -187,6 +187,16 @@ private struct ChildCard: View {
                 .fill(Color.white.opacity(0.05))
                 .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.white.opacity(0.08), lineWidth: 1))
         )
+        .overlay(alignment: .topTrailing) {
+            if child.hasNewAwardClaim {
+                Image(systemName: "gift.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(.orange)
+                    .padding(6)
+                    .background(Circle().fill(Color(red: 0.05, green: 0.05, blue: 0.1)))
+                    .offset(x: 6, y: -6)
+            }
+        }
     }
 }
 

@@ -8,6 +8,7 @@ class FamilyViewModel: ObservableObject {
     @Published var familyName: String = ""
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var selectedChildAwards: [MilestoneAwardDTO] = []
 
     // Clears all in-memory state on sign-out so the next user starts fresh.
     func reset() {
@@ -15,6 +16,7 @@ class FamilyViewModel: ObservableObject {
         pendingInvites = []
         familyName = ""
         errorMessage = nil
+        selectedChildAwards = []
     }
 
     // Loads family name; creates one if the server reports none exists (404).
@@ -106,6 +108,29 @@ class FamilyViewModel: ObservableObject {
             await loadChild(childId)
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    func loadChildAwards(_ childId: UUID) async {
+        do {
+            let awards = try await APIClient.shared.getChildAwards(childId: childId)
+            selectedChildAwards = awards
+        } catch {
+            // Silent failure
+        }
+    }
+
+    func saveChildAward(childId: UUID, milestoneShards: Int, award1: String?, award2: String?, award3: String?) async {
+        do {
+            let updated = try await APIClient.shared.setChildAward(childId: childId, milestoneShards: milestoneShards, award1: award1, award2: award2, award3: award3)
+            if let idx = selectedChildAwards.firstIndex(where: { $0.milestoneShards == milestoneShards }) {
+                selectedChildAwards[idx] = updated
+            } else {
+                selectedChildAwards.append(updated)
+                selectedChildAwards.sort { $0.milestoneShards < $1.milestoneShards }
+            }
+        } catch {
+            // Silent failure
         }
     }
 }

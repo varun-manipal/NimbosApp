@@ -58,6 +58,7 @@ struct NimbusAppApp: App {
                 guard isOnboardingComplete else { return }
                 if phase == .active {
                     dailyRefresh.checkForNewDay(habitViewModel: habitViewModel)
+                    habitViewModel.reload()
                     // Reset the 3-day ghosting timer on every open
                     notifications.scheduleAll(userName: habitViewModel.userName,
                                               vibe: habitViewModel.selectedVibe)

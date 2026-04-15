@@ -7,6 +7,7 @@ struct HabitTask: Identifiable, Codable {
     var isSnoozed: Bool = false          // excluded from today; resets at dawn
     var isDismissedToday: Bool = false   // shown grayed out; not counted; resets at dawn
     var isSkippedTomorrow: Bool = false  // user-planned skip; converted to isSnoozed at next dawn
+    var addedByParent: Bool = false
     var lastUpdated: Date = Date()
 
     init(title: String) {
@@ -24,6 +25,7 @@ struct HabitTask: Identifiable, Codable {
         isSnoozed        = try c.decodeIfPresent(Bool.self,   forKey: .isSnoozed)        ?? false
         isDismissedToday = try c.decodeIfPresent(Bool.self,   forKey: .isDismissedToday) ?? false
         isSkippedTomorrow = try c.decodeIfPresent(Bool.self,  forKey: .isSkippedTomorrow) ?? false
+        addedByParent    = try c.decodeIfPresent(Bool.self,   forKey: .addedByParent)    ?? false
         lastUpdated      = try c.decodeIfPresent(Date.self,   forKey: .lastUpdated)      ?? Date()
     }
 }

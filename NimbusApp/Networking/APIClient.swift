@@ -35,6 +35,23 @@ struct TaskDTO: Decodable {
     let isDismissedToday: Bool
     let isSkippedTomorrow: Bool
     let isTomorrowOnly: Bool
+    let addedByParent: Bool
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id               = try c.decode(UUID.self,   forKey: .id)
+        title            = try c.decode(String.self, forKey: .title)
+        isCompleted      = try c.decode(Bool.self,   forKey: .isCompleted)
+        isSnoozed        = try c.decode(Bool.self,   forKey: .isSnoozed)
+        isDismissedToday = try c.decode(Bool.self,   forKey: .isDismissedToday)
+        isSkippedTomorrow = try c.decode(Bool.self,  forKey: .isSkippedTomorrow)
+        isTomorrowOnly   = try c.decode(Bool.self,   forKey: .isTomorrowOnly)
+        addedByParent    = (try? c.decode(Bool.self, forKey: .addedByParent)) ?? false
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, title, isCompleted, isSnoozed, isDismissedToday, isSkippedTomorrow, isTomorrowOnly, addedByParent
+    }
 }
 
 struct UpdateTaskResponse: Decodable {
@@ -99,6 +116,53 @@ struct ChildProgressDTO: Decodable {
     let dailyCompletionPercentage: Double
     let shield: ShieldDTO
     let tasks: [TaskDTO]
+    let hasNewAwardClaim: Bool
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        userId = try c.decode(UUID.self, forKey: .userId)
+        name = try c.decode(String.self, forKey: .name)
+        totalStars = try c.decode(Int.self, forKey: .totalStars)
+        dailyStars = try c.decode(Int.self, forKey: .dailyStars)
+        dailyCompletionPercentage = try c.decode(Double.self, forKey: .dailyCompletionPercentage)
+        shield = try c.decode(ShieldDTO.self, forKey: .shield)
+        tasks = try c.decode([TaskDTO].self, forKey: .tasks)
+        hasNewAwardClaim = (try? c.decode(Bool.self, forKey: .hasNewAwardClaim)) ?? false
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case userId, name, totalStars, dailyStars, dailyCompletionPercentage, shield, tasks, hasNewAwardClaim
+    }
+}
+
+struct MilestoneAwardDTO: Codable, Identifiable {
+    let milestoneShards: Int
+    let award1: String?
+    let award2: String?
+    let award3: String?
+    let claimedAwardIndex: Int?
+    let claimedAt: Date?
+    let parentViewedAt: Date?
+
+    var id: Int { milestoneShards }
+
+    var availableAwards: [String] {
+        [award1, award2, award3].compactMap { $0 }.filter { !$0.isEmpty }
+    }
+
+    var isClaimed: Bool { claimedAwardIndex != nil }
+
+    var claimedAwardText: String? {
+        guard let index = claimedAwardIndex else { return nil }
+        switch index {
+        case 1: return award1
+        case 2: return award2
+        case 3: return award3
+        default: return nil
+        }
+    }
+
+    var hasAwards: Bool { award1 != nil || award2 != nil || award3 != nil }
 }
 
 struct NewDayResponse: Decodable {
@@ -145,6 +209,7 @@ extension HabitTask {
         self.isSnoozed        = dto.isSnoozed
         self.isDismissedToday = dto.isDismissedToday
         self.isSkippedTomorrow = dto.isSkippedTomorrow
+        self.addedByParent    = dto.addedByParent
         self.lastUpdated      = Date()
     }
 }
@@ -202,6 +267,25 @@ final class APIClient {
         let d = JSONDecoder()
         // ASP.NET Core serialises to camelCase by default; Swift property names
         // match so no key strategy is needed beyond the default.
+        // Use a custom strategy because ASP.NET Core emits fractional seconds
+        // (e.g. "2026-04-15T00:25:22.1234567Z") which Swift's .iso8601 cannot parse.
+        let withFraction = ISO8601DateFormatter()
+        withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let withoutFraction = ISO8601DateFormatter()
+        withoutFraction.formatOptions = [.withInternetDateTime]
+        d.dateDecodingStrategy = .custom { decoder in
+            let c = try decoder.singleValueContainer()
+            var s = try c.decode(String.self)
+            // SQL Server / EF Core may omit the timezone designator when DateTimeKind is Unspecified.
+            // Treat bare datetimes (no Z, no +offset) as UTC by appending Z before parsing.
+            if !s.hasSuffix("Z") && !s.contains("+") {
+                s += "Z"
+            }
+            if let date = withFraction.date(from: s) ?? withoutFraction.date(from: s) {
+                return date
+            }
+            throw DecodingError.dataCorruptedError(in: c, debugDescription: "Cannot decode date: \(s)")
+        }
         return d
     }()
 
@@ -240,6 +324,23 @@ final class APIClient {
 
     private func encode<T: Encodable>(_ value: T) throws -> Data {
         try JSONEncoder().encode(value)
+    }
+
+    private func get<T: Decodable>(_ path: String) async throws -> T {
+        let req = try makeRequest(path)
+        return try await perform(req)
+    }
+
+    private func post<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
+        let data = try encode(body)
+        let req = try makeRequest(path, method: "POST", body: data)
+        return try await perform(req)
+    }
+
+    private func put<T: Decodable, B: Encodable>(_ path: String, body: B) async throws -> T {
+        let data = try encode(body)
+        let req = try makeRequest(path, method: "PUT", body: data)
+        return try await perform(req)
     }
 
     // MARK: - Users
@@ -433,5 +534,25 @@ final class APIClient {
         let body = try encode(Body(title: title))
         let req = try makeRequest("/family/children/\(childId.uuidString.lowercased())/tasks/\(taskId.uuidString.lowercased())", method: "PATCH", body: body)
         return try await perform(req)
+    }
+
+    // MARK: - Awards
+
+    func getMyAwards() async throws -> [MilestoneAwardDTO] {
+        return try await get("/awards")
+    }
+
+    func claimAward(milestoneShards: Int, awardIndex: Int) async throws -> MilestoneAwardDTO {
+        struct Body: Encodable { let awardIndex: Int }
+        return try await post("/awards/\(milestoneShards)/claim", body: Body(awardIndex: awardIndex))
+    }
+
+    func getChildAwards(childId: UUID) async throws -> [MilestoneAwardDTO] {
+        return try await get("/family/children/\(childId.uuidString.lowercased())/awards")
+    }
+
+    func setChildAward(childId: UUID, milestoneShards: Int, award1: String?, award2: String?, award3: String?) async throws -> MilestoneAwardDTO {
+        struct Body: Encodable { let award1: String?; let award2: String?; let award3: String? }
+        return try await put("/family/children/\(childId.uuidString.lowercased())/awards/\(milestoneShards)", body: Body(award1: award1, award2: award2, award3: award3))
     }
 }

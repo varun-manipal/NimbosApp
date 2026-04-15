@@ -12,8 +12,11 @@ class HabitViewModel: ObservableObject {
     @Published var listPin: String = ""
     @Published var lastCompletedId: UUID? = nil
     @Published var showMorningMist: Bool = false
-    @Published var showMilestoneVideo: Bool = false
+
     @Published var shield: Shield = Shield()
+    @Published var milestoneAwards: [MilestoneAwardDTO] = []
+    @Published var pendingAwardClaim: MilestoneAwardDTO? = nil
+    @Published var newParentTaskCount: Int = 0
 
     private var hapticEngine: CHHapticEngine?
 
@@ -82,12 +85,12 @@ class HabitViewModel: ObservableObject {
               !tasks[index].isDismissedToday else { return }
         tasks[index].isCompleted.toggle()
         let isNowCompleted = tasks[index].isCompleted
+        let oldTotal = totalStarsLit
 
         if isNowCompleted {
             totalStarsLit += 1
             dailyStarsLit += 1
             lastCompletedId = task.id
-            if totalStarsLit == 12 { showMilestoneVideo = true }
             triggerCompletionHaptic()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 withAnimation { self.lastCompletedId = nil }
@@ -103,10 +106,21 @@ class HabitViewModel: ObservableObject {
             do {
                 let response = try await APIClient.shared.updateTask(id: taskId, isCompleted: isNowCompleted)
                 await MainActor.run {
+                    let newTotal = response.user.totalStars
                     // Reconcile star counts with server's authoritative values
-                    self.totalStarsLit = response.user.totalStars
+                    self.totalStarsLit = newTotal
                     self.dailyStarsLit = response.user.dailyStars
                     self.save()
+                    let milestones = [12, 35, 50, 100]
+                    for milestone in milestones {
+                        if oldTotal < milestone && newTotal >= milestone {
+                            if let award = self.milestoneAwards.first(where: { $0.milestoneShards == milestone }),
+                               award.hasAwards && !award.isClaimed {
+                                self.pendingAwardClaim = award
+                            }
+                            break
+                        }
+                    }
                 }
             } catch {
                 // Local state is kept; will reconcile on next GET /users/me
@@ -231,13 +245,65 @@ class HabitViewModel: ObservableObject {
     /// Falls back silently to the cached UserDefaults state on any error.
     func reload() {
         guard APIClient.shared.isRegistered else { load(); return }
-        Task {
-            do {
-                let dto = try await APIClient.shared.getMe()
-                await MainActor.run { self.applyUserDTO(dto) }
-            } catch {
-                // Service unavailable — keep cached state
+        Task { await reloadAsync() }
+    }
+
+    /// Async version of reload() — awaitable so .refreshable closures block until done.
+    func reloadAsync() async {
+        guard APIClient.shared.isRegistered else { load(); return }
+        do {
+            let dto = try await APIClient.shared.getMe()
+            await MainActor.run { self.applyUserDTO(dto) }
+        } catch {
+            // Service unavailable — keep cached state
+        }
+        await loadMyAwards()
+    }
+
+    func loadMyAwards() async {
+        do {
+            let awards = try await APIClient.shared.getMyAwards()
+            let milestones = [12, 35, 50, 100]
+            await MainActor.run {
+                self.milestoneAwards = awards
+                for milestone in milestones {
+                    if totalStarsLit >= milestone,
+                       let award = awards.first(where: { $0.milestoneShards == milestone }),
+                       award.hasAwards && !award.isClaimed,
+                       pendingAwardClaim == nil {
+                        pendingAwardClaim = award
+                        break
+                    }
+                }
             }
+        } catch {
+            // Silent failure — awards are non-critical
+        }
+    }
+
+    /// Fetches the latest awards from the server and returns them.
+    /// Unlike loadMyAwards(), this has no side effects (does not set pendingAwardClaim).
+    /// Used by EvolutionTimelineView to load its own display state.
+    func fetchAwards() async -> [MilestoneAwardDTO] {
+        do {
+            let awards = try await APIClient.shared.getMyAwards()
+            await MainActor.run { self.milestoneAwards = awards }
+            return awards
+        } catch {
+            return milestoneAwards
+        }
+    }
+
+    func claimAward(milestoneShards: Int, awardIndex: Int) async {
+        do {
+            let updated = try await APIClient.shared.claimAward(milestoneShards: milestoneShards, awardIndex: awardIndex)
+            await MainActor.run {
+                if let idx = milestoneAwards.firstIndex(where: { $0.milestoneShards == milestoneShards }) {
+                    milestoneAwards[idx] = updated
+                }
+            }
+        } catch {
+            // Handle error silently
         }
     }
 
@@ -249,13 +315,23 @@ class HabitViewModel: ObservableObject {
         shield        = Shield(from: dto.shield)
         // Preserve local isCompleted so a GET /users/me on app launch doesn't
         // erase progress the user has already ticked off today.
-        let localById = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) })
-        tasks = dto.tasks.map { taskDTO -> HabitTask in
+        let knownIds = Set(tasks.map { $0.id })
+        let newTasks = dto.tasks.map { taskDTO -> HabitTask in
             var task = HabitTask(from: taskDTO)
-            if let local = localById[task.id] {
+            if let local = (knownIds.contains(task.id) ? tasks.first(where: { $0.id == task.id }) : nil) {
                 task.isCompleted = local.isCompleted
             }
             return task
+        }
+        tasks = newTasks
+
+        // Surface banner for parent-added tasks the child hasn't seen before
+        let newCount = newTasks.filter { $0.addedByParent && !knownIds.contains($0.id) }.count
+        if newCount > 0 {
+            newParentTaskCount = newCount
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                if self.newParentTaskCount == newCount { self.newParentTaskCount = 0 }
+            }
         }
         tomorrowExtras = dto.tomorrowExtras.map { HabitTask(from: $0) }
         // listPin is not returned by the service for security — keep the locally stored value
