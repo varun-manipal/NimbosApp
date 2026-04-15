@@ -302,6 +302,13 @@ final class APIClient {
         try await performVoid(req)
     }
 
+    func updateApnsToken(_ token: String) async throws {
+        struct Body: Encodable { let apnsToken: String }
+        let body = try encode(Body(apnsToken: token))
+        let req  = try makeRequest("/users/me", method: "PATCH", body: body)
+        try await performVoid(req)
+    }
+
     // MARK: - Tasks
 
     func createTask(title: String) async throws -> TaskDTO {
@@ -348,9 +355,9 @@ final class APIClient {
 
     // MARK: - Daily
 
-    func newDay(lastOpenedDate: String) async throws -> NewDayResponse {
-        struct Body: Encodable { let lastOpenedDate: String }
-        let body = try encode(Body(lastOpenedDate: lastOpenedDate))
+    func newDay(lastOpenedDate: String, currentDate: String) async throws -> NewDayResponse {
+        struct Body: Encodable { let lastOpenedDate: String; let currentDate: String }
+        let body = try encode(Body(lastOpenedDate: lastOpenedDate, currentDate: currentDate))
         let req = try makeRequest("/daily/new-day", method: "POST", body: body)
         return try await perform(req)
     }

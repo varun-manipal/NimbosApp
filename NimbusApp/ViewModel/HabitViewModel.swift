@@ -247,7 +247,16 @@ class HabitViewModel: ObservableObject {
         totalStarsLit = dto.totalStars
         dailyStarsLit = dto.dailyStars
         shield        = Shield(from: dto.shield)
-        tasks         = dto.tasks.map { HabitTask(from: $0) }
+        // Preserve local isCompleted so a GET /users/me on app launch doesn't
+        // erase progress the user has already ticked off today.
+        let localById = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) })
+        tasks = dto.tasks.map { taskDTO -> HabitTask in
+            var task = HabitTask(from: taskDTO)
+            if let local = localById[task.id] {
+                task.isCompleted = local.isCompleted
+            }
+            return task
+        }
         tomorrowExtras = dto.tomorrowExtras.map { HabitTask(from: $0) }
         // listPin is not returned by the service for security — keep the locally stored value
         // Always accept the server's authoritative role UNLESS the server returns "solo" and

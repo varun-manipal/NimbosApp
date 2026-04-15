@@ -45,7 +45,7 @@ class DailyRefreshViewModel: ObservableObject {
 
         Task {
             do {
-                let response = try await APIClient.shared.newDay(lastOpenedDate: lastOpenedStr)
+                let response = try await APIClient.shared.newDay(lastOpenedDate: lastOpenedStr, currentDate: todayStr)
                 await MainActor.run {
                     if response.wasNewDay {
                         habitViewModel.tasks         = response.tasks.map { HabitTask(from: $0) }
