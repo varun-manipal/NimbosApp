@@ -1,12 +1,42 @@
 import Foundation
+import UserNotifications
 
 // MARK: - API Error
 
 enum APIError: Error {
     case notRegistered
     case httpError(Int)
+    case serverMessage(Int, String)   // HTTP status + message from response body
     case decodingError(Error)
     case networkError(Error)
+}
+
+extension APIError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .notRegistered:
+            return "You are not signed in. Please sign in and try again."
+        case .httpError(let code):
+            switch code {
+            case 401, 403: return "Authentication failed. Please sign in again."
+            case 404:      return "The requested resource was not found."
+            case 409:      return "A conflict occurred. Please try again."
+            case 429:      return "Too many requests. Please wait a moment and try again."
+            case 500...:   return "A server error occurred. Please try again later."
+            default:       return "An error occurred (HTTP \(code)). Please try again."
+            }
+        case .serverMessage(_, let message):
+            return message
+        case .decodingError:
+            return "The server returned an unexpected response. Please try again."
+        case .networkError(let underlying):
+            let ns = underlying as NSError
+            if ns.code == NSURLErrorNotConnectedToInternet {
+                return "No internet connection. Please check your network and try again."
+            }
+            return "A network error occurred. Please check your connection and try again."
+        }
+    }
 }
 
 // MARK: - Response DTOs
@@ -317,10 +347,23 @@ final class APIClient {
         return req
     }
 
+    private struct ServerErrorBody: Decodable {
+        let message: String?
+        let title: String?
+        let error: String?
+    }
+
     private func perform<T: Decodable>(_ req: URLRequest) async throws -> T {
         let (data, response) = try await URLSession.shared.data(for: req)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        guard (200..<300).contains(status) else { throw APIError.httpError(status) }
+        guard (200..<300).contains(status) else {
+            print("[API] HTTP \(status) – \(req.url?.path ?? "?"): \(String(data: data, encoding: .utf8) ?? "<empty>")")
+            if let body = try? JSONDecoder().decode(ServerErrorBody.self, from: data),
+               let msg = body.message ?? body.title ?? body.error {
+                throw APIError.serverMessage(status, msg)
+            }
+            throw APIError.httpError(status)
+        }
         do {
             return try decoder.decode(T.self, from: data)
         } catch {
@@ -329,9 +372,15 @@ final class APIClient {
     }
 
     private func performVoid(_ req: URLRequest) async throws {
-        let (_, response) = try await URLSession.shared.data(for: req)
+        let (data, response) = try await URLSession.shared.data(for: req)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        guard (200..<300).contains(status) else { throw APIError.httpError(status) }
+        guard (200..<300).contains(status) else {
+            if let body = try? JSONDecoder().decode(ServerErrorBody.self, from: data),
+               let msg = body.message ?? body.title ?? body.error {
+                throw APIError.serverMessage(status, msg)
+            }
+            throw APIError.httpError(status)
+        }
     }
 
     private func encode<T: Encodable>(_ value: T) throws -> Data {
@@ -415,9 +464,35 @@ final class APIClient {
         try await performVoid(req)
     }
 
-    func updateApnsToken(_ token: String) async throws {
-        struct Body: Encodable { let apnsToken: String }
-        let body = try encode(Body(apnsToken: token))
+    /// Calls the push-test debug endpoint, prints the result, and fires a local notification
+    /// so the result is visible on-device even when Xcode is not attached.
+    func testPush(role: String = "solo") async {
+        let path = role == "parent" ? "/debug/push-test-children" : "/debug/push-test"
+        guard let req = try? makeRequest(path) else { return }
+        let resultText: String
+        if let (data, _) = try? await URLSession.shared.data(for: req),
+           let text = String(data: data, encoding: .utf8) {
+            resultText = text
+        } else {
+            resultText = "network error — could not reach \(path)"
+        }
+        print("[APNs] push-test result: \(resultText)")
+        UserDefaults.standard.set(resultText, forKey: "nimbus_lastPushTestResult")
+
+        // Fire a local notification so the result appears on-device without Xcode.
+        let content = UNMutableNotificationContent()
+        content.title = "Push Test Result"
+        content.body = resultText
+        content.sound = .default
+        let req2 = UNNotificationRequest(identifier: "nimbus_push_test_result",
+                                         content: content,
+                                         trigger: UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false))
+        try? await UNUserNotificationCenter.current().add(req2)
+    }
+
+    func updateApnsToken(_ token: String, timezone: String, sandbox: Bool = true) async throws {
+        struct Body: Encodable { let apnsToken: String; let timezone: String; let apnsSandbox: Bool }
+        let body = try encode(Body(apnsToken: token, timezone: timezone, apnsSandbox: sandbox))
         let req  = try makeRequest("/users/me", method: "PATCH", body: body)
         try await performVoid(req)
     }

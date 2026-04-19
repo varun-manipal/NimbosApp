@@ -287,6 +287,9 @@ struct MainDashboardView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         }
+        .onReceive(NotificationCenter.default.publisher(for: .nimbusDailySummary)) { _ in
+            showTomorrowPlanner = true
+        }
     }
 
     // MARK: - Glow Overlay

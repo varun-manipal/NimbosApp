@@ -85,10 +85,12 @@ class OnboardingViewModel: ObservableObject {
         let inviteCode = self.inviteCode
         let childEmail = self.childEmail
 
+        let userName = self.userName
+        let vibe = self.selectedVibe
         let notifications = NotificationViewModel()
-        notifications.requestPermission()
-        notifications.scheduleAll(userName: userName, vibe: selectedVibe)
-        notifications.scheduleEvening(userName: userName, vibe: selectedVibe)
+        notifications.requestPermission {
+            notifications.scheduleAll(userName: userName, vibe: vibe, role: role.rawValue)
+        }
 
         Task {
             do {
@@ -109,6 +111,7 @@ class OnboardingViewModel: ObservableObject {
                     email: googleEmail ?? appleEmail
                 )
                 APIClient.shared.saveToken(response.token)
+                AppDelegate.flushCachedApnsToken()
 
                 // Persist email for profile display
                 if let email = googleEmail ?? appleEmail {

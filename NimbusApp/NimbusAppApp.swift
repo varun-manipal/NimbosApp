@@ -10,6 +10,7 @@ import GoogleSignIn
 
 @main
 struct NimbusAppApp: App {
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @AppStorage(OnboardingViewModel.onboardingCompleteKey) private var isOnboardingComplete = false
     @AppStorage("nimbus_googleAuthComplete") private var isGoogleAuthComplete = false
     @AppStorage("nimbus_appleAuthComplete") private var isAppleAuthComplete = false
@@ -55,13 +56,19 @@ struct NimbusAppApp: App {
                 }
             }
             .onChange(of: scenePhase) { phase in
+                if phase == .active {
+                    // Request permission on every foreground — safe to call repeatedly,
+                    // shows the dialog only once; after that just checks current status.
+                    notifications.requestPermission()
+                }
                 guard isOnboardingComplete else { return }
                 if phase == .active {
                     dailyRefresh.checkForNewDay(habitViewModel: habitViewModel)
                     habitViewModel.reload()
                     // Reset the 3-day ghosting timer on every open
                     notifications.scheduleAll(userName: habitViewModel.userName,
-                                              vibe: habitViewModel.selectedVibe)
+                                              vibe: habitViewModel.selectedVibe,
+                                              role: userRole)
                 } else if phase == .background {
                     // Cancel evening nudge if user is already ≥ 50% done
                     if habitViewModel.dailyCompletionPercentage >= 0.5 {

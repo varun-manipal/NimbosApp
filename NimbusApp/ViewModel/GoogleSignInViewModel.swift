@@ -12,6 +12,11 @@ class GoogleSignInViewModel: ObservableObject {
         defer { isLoading = false }
         errorMessage = nil
 
+        // Revoke tokens and clear all cached state so the full OAuth flow always
+        // runs, guaranteeing a fresh ID token. disconnect() is a no-op (try?) when
+        // there is no current user.
+        try? await GIDSignIn.sharedInstance.disconnect()
+
         do {
             let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presentingViewController)
 
@@ -20,7 +25,6 @@ class GoogleSignInViewModel: ObservableObject {
                 return
             }
 
-            print("Google idToken: \(idToken)")
             let response = try await APIClient.shared.googleAuth(idToken: idToken)
 
             if response.isNewUser {
@@ -39,17 +43,20 @@ class GoogleSignInViewModel: ObservableObject {
                     return
                 }
                 APIClient.shared.saveToken(token)
-                if let email = response.email { UserDefaults.standard.set(email, forKey: "nimbus_email") }
-                // Always write the role before setting onboardingComplete so the routing
-                // check in NimbusAppApp reads the correct value on the same render pass.
-                // Fall back to "solo" only if the server omits the field (should never happen).
                 let role = response.user?.role ?? "solo"
+                AppDelegate.flushCachedApnsToken(role: role)
+                if let email = response.email { UserDefaults.standard.set(email, forKey: "nimbus_email") }
                 UserDefaults.standard.set(role, forKey: OnboardingViewModel.roleKey)
                 // Triggers NimbusAppApp to show MainDashboardView / ParentDashboardView
                 UserDefaults.standard.set(true, forKey: OnboardingViewModel.onboardingCompleteKey)
             }
+        } catch let apiError as APIError {
+            print("[Auth] Backend error: \(apiError)")
+            errorMessage = apiError.localizedDescription
         } catch {
-            print("Google Sign-In error: \(error)")
+            // Error came from the Google Sign-In SDK (before the network call)
+            let ns = error as NSError
+            print("[Auth] GIDSignIn error — domain: \(ns.domain), code: \(ns.code), desc: \(ns.localizedDescription)")
             errorMessage = error.localizedDescription
         }
     }

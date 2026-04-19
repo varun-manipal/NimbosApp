@@ -51,10 +51,9 @@ class AppleSignInViewModel: NSObject, ObservableObject, ASAuthorizationControlle
                         return
                     }
                     APIClient.shared.saveToken(token)
-                    if let email = response.email { UserDefaults.standard.set(email, forKey: "nimbus_email") }
-                    // Always write the role before setting onboardingComplete so the routing
-                    // check in NimbusAppApp reads the correct value on the same render pass.
                     let role = response.user?.role ?? "solo"
+                    AppDelegate.flushCachedApnsToken(role: role)
+                    if let email = response.email { UserDefaults.standard.set(email, forKey: "nimbus_email") }
                     UserDefaults.standard.set(role, forKey: OnboardingViewModel.roleKey)
                     UserDefaults.standard.set(true, forKey: OnboardingViewModel.onboardingCompleteKey)
                 }

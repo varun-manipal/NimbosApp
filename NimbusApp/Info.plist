@@ -30,5 +30,17 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+
+	<!-- Opt out of iPad multitasking (Split View / Slide Over).
+	     Without this, Apple requires all 4 interface orientations on iPad.
+	     This app is portrait-only, so we declare full-screen intent instead. -->
+	<key>UIRequiresFullScreen</key>
+	<true/>
+
+	<!-- Required to receive remote (push) notifications while the app is in the background -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>
