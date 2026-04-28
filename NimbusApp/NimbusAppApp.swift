@@ -63,6 +63,9 @@ struct NimbusAppApp: App {
                 }
                 guard isOnboardingComplete else { return }
                 if phase == .active {
+                    if userRole == UserRole.parent.rawValue {
+                        Task { await familyViewModel.loadChildren() }
+                    }
                     dailyRefresh.checkForNewDay(habitViewModel: habitViewModel)
                     habitViewModel.reload()
                     // Reset the 3-day ghosting timer on every open
